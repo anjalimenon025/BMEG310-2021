@@ -1,6 +1,6 @@
 # BMEG310-2021
 BMEG 310 ASSIGNMENT 1 TASK DISTRIBUTION:
 
-ANJALI MENON: q1,3,5, created github repository, and READMD File
-RHEA KAUL: Q1,2,4
-HAYDEN SCOTT: Q1,2,3,5, created R markdown file
+/*ANJALI MENON: q1,3,5, created github repository, and README File
+/*RHEA KAUL: Q1,2,4
+/*HAYDEN SCOTT: Q1,2,3,5, created R markdown file
