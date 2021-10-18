@@ -1,0 +1,331 @@
+---
+title: "Assignment 2: Exploratory Analysis of Measured Features to Separate Benign and Malignant Cells"
+author: "Group 11: Anjali Menon, Rhea Kaul, Hayden Scott"
+date: "10/16/2021"
+output: html_document
+---
+
+``` {r}
+library(devtools)
+library(ggbiplot)
+library(dplyr)
+```
+**In order to make the dimensions usable we must perform dimensionality reduction of the data using the following steps**
+
+```{r}
+ovarian.dataset <- read.delim("C:/Users/Owner/Downloads/BMEG310_2021-main (1)/BMEG310_2021-main/Assignment 2/ovarian.data", sep=",", header = FALSE)
+features <- c("perimeter", "area", "smoothness", "symmetry", "concavity", paste("protein ", seq(1, 25) ))
+names(ovarian.dataset) <- c("cell_id", "diagnosis", features) # paste0(features,"_mean"), paste0(features,"_se"), paste0(features,"_worst"))
+```
+
+# Question 1 DIMENSIONALITY REDUCTION
+
+## Q1.1. Performing PCA on the features of the dataset and reporting variation
+
+```{r}
+ovarian.pca <- prcomp(ovarian.dataset[,c(3:32)],center = TRUE,scale. = TRUE)
+summary(ovarian.pca)
+```
+**The variation associated with PC1 is 42.88%. Please refer to the table for more information.**
+
+## Q1.2.Dimensionality of the reduced feature space to preserve 90% variability
+
+**In order to represent 90% of the variance in the data by dimensionality reduction, the number of PCs required is at least 9. This is because the cumulative proportion PC9 is approximately 90% and PC10 is 91%.**
+
+## Q1.3.Plotting observations using 2 different colours
+### GRAPH 1: Plot of PC1 AND PC2 
+```{r}
+str(ovarian.pca)
+ovarian.dataset.v2 <- ovarian.dataset[,2]
+ggbiplot(ovarian.pca,choices=c(1,2),groups=ovarian.dataset.v2)
+```
+
+## Q1.4.Plotting Area and Concaivity features associated with cells
+### GRAPH 2: Plot of Area and Concaivity
+```{r}
+ggplot(ovarian.dataset, aes(x=area,y=concavity,color= factor(diagnosis)))+geom_point()
+```
+
+## Q1.5.Difference between the two plots:
+**The PCA gives a more reduced and accurate plot of the values compared to the unreduced one, which shows no separation. However, due to the reduced variance in the data, the clusters overlap and give us an unclear separation. Reducing the dimensionality by comparing just area and concavity does give a less crowded graph but due to the reduced variance in the data, the clusters overlap and give us an unclear separation**
+
+## Q1.6.Plotting Distributions of the PCs
+```{r}
+boxplot(ovarian.pca$x)
+```
+
+# Question 2 CLUSTERING
+
+## Q2.1. Applying Kmeans clustering on data
+
+```{r}
+set.seed(786)
+input <-as.data.frame(scale(ovarian.dataset[,c(3:32)]))
+clustering <- kmeans(input,2)
+labels <- ifelse(clustering$cluster== 1, "M", "B")
+diagnosiscountM <- sum(labels=="M")
+diagnosiscountM
+diagnosiscountB<-625-diagnosiscountM
+diagnosiscountB
+c.mat<-table(labels, ovarian.dataset$diagnosis)
+c.mat
+acc = (c.mat[1,1] + c.mat[2,2])/length(labels)
+recall = c.mat[1,1]/(c.mat[1,1]+c.mat[2,1])
+precision = c.mat[1,1]/(c.mat[1,1]+c.mat[1,2])
+
+
+clusternumM<- sum(ovarian.dataset$diagnosis =="M")
+clusternumB<- 625-clusternumM
+clusternumM
+clusternumB
+
+acc
+recall
+precision
+
+```
+**Please note that the values change each time and the following values are given for a single instance of the data!**
+
+**2 Named clusters are: B = 385 and M = 240 concordance between clusters: Cluster count B = 406 and M = 219** 
+
+**The cluster count is close to the actual count is off by about 21. The accuracy is 0.92 while the precision and recall are 0.91 and 0.96 respectively, which means that the concordance is high.**
+
+## Q2.2.Kmeans analysis 10 times and reporting mean accuracy
+```{r}
+(accuracy <- c(1:10))
+for(i in 1:10)
+{
+  ovarian.val <- select(ovarian.dataset, -2)
+  ovarian.normalization <- as.data.frame(scale(ovarian.val))
+  clustering <- kmeans(ovarian.normalization,2,nstar = 1)
+  labels <- ifelse(clustering$cluster== 1, "M", "B")
+  c.mat<-table(labels, ovarian.dataset$diagnosis)
+  accuracy[i] =(c.mat[1,1] + c.mat[2,2])/length(labels)
+  
+}
+accuracy
+mean(accuracy)
+```
+
+**The mean accuracy is 0.66864.** 
+
+**In each run the results are different because the variance changes each time. Picking different starting points for the analysis randomly is what causes the results to vary each time.**
+
+## Q2.3. Repeating Analysis with top 5 PC's
+```{r}
+(accuracy.pca <- c(1:10))
+for(i in 1:10)
+{
+  ovarian.dataframe <- as.data.frame(predict(ovarian.pca, ovarian.dataset))
+  ovarian.dataframe <- subset(ovarian.dataframe, select = c(1:5))
+  
+  clustering.pca <- kmeans(ovarian.dataframe,2,nstar = 2)
+  labels <- ifelse(clustering.pca$cluster== 1, "M", "B")
+  c.mat<-table(labels, ovarian.dataset$diagnosis)
+  
+  accuracy.pca[i] = (c.mat[1,1] + c.mat[2,2])/length(labels)
+  
+}
+accuracy.pca
+mean(accuracy.pca)
+```
+
+## Q2.4. Comparison of results
+**kmeans clustering aims to organize data into a specific number of clusters. It identifies similar data points and then clusters those together while distancing them from each other. For one instance: The mean accuracy for 2.2 is about 0.66 while for 2.3 it is 0.41. The value in this instance does decreases/gets worse since we only take the first 5 PCAs which represents 80.492% of the variance. However, this value changes based on which random point is selected as the centroid value for the kmeans clustering.**
+
+# Q3 CLASSIFICATION
+
+## Dividing data into training and test sets 
+```{r}
+ovarian.dataset.train <- ovarian.dataset[sample(nrow(ovarian.dataset))[1:(nrow(ovarian.dataset)/2)],]
+ovarian.dataset.test <- ovarian.dataset[sample(nrow(ovarian.dataset))[(nrow(ovarian.dataset)/2):(nrow(ovarian.dataset))],]
+```
+
+## Q3.1.
+```{r}
+ovarian.fit <- glm(as.factor(diagnosis) ~ .- cell_id , data = ovarian.dataset.train, family = binomial)
+summary(ovarian.fit)
+
+ovarian.probability_1 <- predict(ovarian.fit, newdata = ovarian.dataset.train, type = "response")
+ovarian.prediction_1 <- ifelse(ovarian.probability_1 > 0.5,"M", "B")
+summary(ovarian.prediction_1)
+
+cm.trainingset <- table(ovarian.prediction_1,ovarian.dataset.train$diagnosis)
+cm.trainingset
+
+accuracy_1 = (cm.trainingset[1,1] + cm.trainingset[2,2])/length(ovarian.prediction_1)
+precision_1 = cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[2,1])
+recall_1 = cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[1,2])
+
+accuracy_1
+precision_1
+recall_1
+
+ovarian.probability_2<-predict(ovarian.fit,newdata = ovarian.dataset.test,type = "response")
+ovarian.prediction_2 <- ifelse(ovarian.probability_2 > 0.5,"M","B")
+summary(ovarian.prediction_2)
+
+cm.test <- table(ovarian.prediction_2,ovarian.dataset.test$diagnosis)
+cm.test
+
+accuracy_2 = (cm.test[1,1] + cm.test[2,2])/length(ovarian.prediction_2)
+precision_2 = cm.test[1,1]/(cm.test[1,1]+cm.test[2,1])
+recall_2 = cm.test[1,1]/(cm.test[1,1]+cm.test[1,2])
+
+accuracy_2
+precision_2
+recall_2
+```
+**Training Set Data:**
+**Accuracy = 1 Precision = 1 Recall = 1**
+
+**Test Data (approximate values - change based on different division of data)**
+**Accuracy ~ 0.952 Precision ~ 0.957 Recall ~ 0.962**
+
+**Through these results it can be seen that the classifier performs better on the training set vs the test set. Specifically speaking, since all values are 1, this means that ever result that was retrieved through a search algorithm was relevant.The classifier performed better on the training set since the model was trained on the training data itself. This means that the model has seen the data already and is more likey to search for all of the relavent values. This is different than the test data since the computer has not seen the data, it is harder for it to reproduce relavent search results **
+
+## Q3.2.
+```{r}
+ovarian.dataset.pca <- prcomp(ovarian.dataset[,c(3:32)],center = TRUE,scale. = TRUE)
+ovarian.training.pca = as.data.frame(predict(ovarian.dataset.pca, ovarian.dataset.train))
+ovarian.testing.pca = as.data.frame(predict(ovarian.dataset.pca, ovarian.dataset.test))
+
+
+ovarian.training.pca = subset(ovarian.training.pca, select = c(1:5))
+ovarian.training.kmean <- kmeans(ovarian.training.pca, 2, nstar = 1)
+
+ovarian.training.pca$diagnosis = ovarian.dataset.train$diagnosis
+predict_ovarian_labels <- ifelse(ovarian.training.kmean$cluster == 1, "M", "B")
+
+
+cm.trainingset <- table(predict_ovarian_labels,ovarian.training.pca$diagnosis)
+cm.trainingset
+
+accuracy_pca_1 <- (cm.trainingset[1,1] + cm.trainingset[2,2])/length(predict_ovarian_labels)
+precision_pca_1 <- cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[2,1])
+recall_pca_1 <- cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[1,2])
+
+accuracy_pca_1
+precision_pca_1
+recall_pca_1
+
+ovarian.testing.pca = subset(ovarian.testing.pca, select = c(1:5))
+ovarian.testing.kmean <- kmeans(ovarian.testing.pca, 2, nstar = 1)
+
+ovarian.testing.pca$diagnosis = ovarian.dataset.test$diagnosis
+predict_ovarian_labels_test <- ifelse(ovarian.testing.kmean$cluster == 1, "M", "B")
+
+cm.testingset <- table(predict_ovarian_labels_test,ovarian.testing.pca$diagnosis)
+cm.testingset
+
+accuracy_pca_2 <- (cm.testingset[1,1] + cm.testingset[2,2])/length(predict_ovarian_labels_test)
+precision_pca_2 <- cm.testingset[1,1]/(cm.testingset[1,1]+cm.testingset[2,1])
+recall_pca_2 <- cm.testingset[1,1]/(cm.testingset[1,1]+cm.testingset[1,2])
+
+accuracy_pca_2
+precision_pca_2
+recall_pca_2
+```
+## Q3.3.
+**The values in 3.2 are lower than that of 3.1 for one instance of the data set. Please note that due to the kmeans clustering feature, each time the data set is divided into training and test data, the value changes due to the difference in selected centroid value. However we believe that this makes sense since the these values keep changing as the threshold is increased or decreased. Furthermore, PCA values are lesser since the dimensions are reduced. Due to this reduced dimension the data is less categorical, and classification will not produce results as accurately or precisely**
+
+## Q3.4.
+**Classification is a supervised learning algorithm and uses labelled data as the input. Clustering is an unsupervised learning algorithm and uses unlabeled data as the input. In our data, Classification has better results than clustering. This is most likely because classification is better suited to sorting labeled categorical data, which our diagnosis data most closely resembles. If we were trying to sort the data by some non-categorical data, clustering would perform better.**
+
+## Q3.5.
+```{r}
+library(ROCR)
+probability.predictor <- predict(ovarian.fit, ovarian.dataset, type="response")
+prediction <- prediction(probability.predictor, ovarian.dataset$diagnosis, label.ordering=c("B","M"))
+perform.plot <- performance(prediction,"tpr","fpr")
+plot(perform.plot,colorize=TRUE)
+```
+**From the graph obtained, the AUC value is approximately 0.7. This was determined after referring to this link provided, and comparing the graph that looked the most similar to the graph obtained: https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5.**
+**In terms of the separability of the classes, there is around a 70% chance that the model is able to determine the difference between the positive and negative class. The distributions overlap but we can minimize type 1 and type 2 errors based on the threshold. This tells us more about the model's performance than a single sensitivity/specificity measure as we can change the threshold value to see how it affects both, the sensitivity and the specificity**
+
+
+## Q3.6.
+**Performing random forest classification for training and testing data**
+```{r}
+library(randomForest)
+
+set.seed(69)
+
+dataset.6.train <- ovarian.dataset[sample(nrow(ovarian.dataset))[1:(nrow(ovarian.dataset)/2)],]
+dataset.6.test <- ovarian.dataset[sample(nrow(ovarian.dataset))[(nrow(ovarian.dataset)/2):(nrow(ovarian.dataset))],]
+
+names(dataset.6.train) <- make.names(names(dataset.6.train))
+names(dataset.6.test) <- make.names(names(dataset.6.test))
+
+model.6 <- randomForest(as.factor(diagnosis) ~ . - cell_id,dataset.6.train)
+summary(model.6$y)
+
+
+cm.treetrain <- table(model.6$y,dataset.6.train$diagnosis)
+cm.treetrain
+
+accuracy_tra = (cm.treetrain[1,1] + cm.treetrain[2,2])/length(model.6$y)
+precision_tra = cm.treetrain[1,1]/(cm.treetrain[1,1]+cm.treetrain[2,1])
+recall_tra = cm.treetrain[1,1]/(cm.treetrain[1,1]+cm.treetrain[1,2])
+
+accuracy_tra
+precision_tra
+recall_tra
+
+predict.6 <- predict(model.6, dataset.6.test)
+summary(predict.6)
+
+cm.treetest <- table(predict.6,dataset.6.test$diagnosis)
+cm.treetest
+
+accuracy_test = (cm.treetest[1,1] + cm.treetest[2,2])/length(predict.6)
+precision_test = cm.treetest[1,1]/(cm.treetest[1,1]+cm.treetest[2,1])
+recall_test = cm.treetest[1,1]/(cm.treetest[1,1]+cm.treetest[1,2])
+
+accuracy_test
+precision_test
+recall_test
+```
+**Performing PCA training and testing analysis**
+```{r}
+ovarian.dataset.pca <- prcomp(ovarian.dataset[,c(3:32)],center = TRUE,scale. = TRUE)
+ovarian.training.pca = as.data.frame(predict(ovarian.dataset.pca, ovarian.dataset.train))
+ovarian.testing.pca = as.data.frame(predict(ovarian.dataset.pca, ovarian.dataset.test))
+
+
+ovarian.training.pca = subset(ovarian.training.pca, select = c(1:5))
+ovarian.training.kmean <- kmeans(ovarian.training.pca, 2, nstar = 1)
+
+ovarian.training.pca$diagnosis = ovarian.dataset.train$diagnosis
+predict_ovarian_labels <- ifelse(ovarian.training.kmean$cluster == 1, "M", "B")
+
+
+cm.trainingset <- table(predict_ovarian_labels,ovarian.training.pca$diagnosis)
+cm.trainingset
+
+accuracy_pca_1 <- (cm.trainingset[1,1] + cm.trainingset[2,2])/length(predict_ovarian_labels)
+precision_pca_1 <- cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[2,1])
+recall_pca_1 <- cm.trainingset[1,1]/(cm.trainingset[1,1]+cm.trainingset[1,2])
+
+accuracy_pca_1
+precision_pca_1
+recall_pca_1
+
+ovarian.testing.pca = subset(ovarian.testing.pca, select = c(1:5))
+ovarian.testing.kmean <- kmeans(ovarian.testing.pca, 2, nstar = 1)
+
+ovarian.testing.pca$diagnosis = ovarian.dataset.test$diagnosis
+predict_ovarian_labels_test <- ifelse(ovarian.testing.kmean$cluster == 1, "M", "B")
+
+cm.testingset <- table(predict_ovarian_labels_test,ovarian.testing.pca$diagnosis)
+cm.testingset
+
+accuracy_pca_2 <- (cm.testingset[1,1] + cm.testingset[2,2])/length(predict_ovarian_labels_test)
+precision_pca_2 <- cm.testingset[1,1]/(cm.testingset[1,1]+cm.testingset[2,1])
+recall_pca_2 <- cm.testingset[1,1]/(cm.testingset[1,1]+cm.testingset[1,2])
+
+accuracy_pca_2
+precision_pca_2
+recall_pca_2
+```
+**The values here are very similar to that of 3.1 and 3.2. The PCA values are lower and this once again makes sense since the dimensions are reduced. Due to this reduced dimension the data is less categorical, and classification will not produce results as accurately or precisely.**
