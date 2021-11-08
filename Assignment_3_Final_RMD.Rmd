@@ -1,0 +1,475 @@
+---
+title: "Assignment 3"
+author: "Group 11: Anjali Menon, Hayden Scott, Rhea Kaul"
+date: "10/31/2021"
+output: html_document
+---
+# Assignment 3: Variant Calling
+
+## Question 1
+### Q1.1
+```{r}
+read.csv("C:/Users/Owner/Downloads/single_cell_RNA_seq_bam.sam", nrows=73, sep="\t", header=FALSE, fill=TRUE)
+```
+Both SN and LN are indicative of header tags. SN tag indicates the Reference Sequence Name (SN). LN tag indicates the Reference Sequence Length(LN)
+
+
+### Q1.2
+The Length of the X chromosome in base pairs (SN:X)  is 171031299bp (LN:171031299). This was checked by reading the data and finding the corresponding Reference Sequence Name "X"
+
+# Question 2
+
+## Q2.1
+```{r}
+sam <- read.csv("C:/Users/Owner/Downloads/single_cell_RNA_seq_bam.sam", sep="\t", header=FALSE, comment.char="@", col.names = paste0("V",seq_len(30)), fill=TRUE)
+sam <- sam[paste0("V",seq_len(11))]
+numReads <- nrow(sam)
+numReads
+```
+By using the nrow function, the number of reads were found to be 146346 as there are that many number of rows in the data
+
+## Q2.2
+```{r}
+rowTen <- sam[10, ]
+```
+Column V3 consists of Reference Sequence Names. By looking at this column, one can determine the reference sequence name of the chromosome to which the read was aligned.Column V11 corresponds to the base quality or also the confidence of the referenced sample 
+
+## Q2.3
+```{r}
+findX <- (sam[,3] =='X')
+align <-ifelse(findX == TRUE, 1, 0)
+sumX<-sum(align)
+sumX
+```
+By comparing a column vector to a constant, the number of reads that align to chromosome X was determined to be 5999
+
+## Q2.4
+```{r}
+sam_needed <- sam[sam$V3 == 'X',]
+mean_vector <- c(1:5999)
+for (i in 1:length(sam_needed$V11))
+{
+  mean_vector[i] = mean(strtoi(charToRaw(sam_needed$V11[i]),16L)-33);
+}
+mean(mean_vector)
+```
+#Mean base quality aligning to chromosome X is 32.72349 or 32.7
+
+## Q2.5
+```{r}
+
+as.data.frame(table(sam$V3)); # to find the different elements in the data set
+# To create vectors for the rows each element occurs
+sam_1 <- sam[sam$V3 =='1',]
+base_vector_1 <- c(1:sum(sam$V3== '1'))
+for (i in 1:length(sam_1$V11))
+{
+  base_vector_1[i] = mean(strtoi(charToRaw(sam_1$V11[i]),16L)-33);
+}
+sam_10 <- sam[sam$V3 =='10',]
+base_vector_10 <- c(1:length(sam_10))
+for (i in 1:length(sam_10$V11))
+{
+  base_vector_10[i] = mean(strtoi(charToRaw(sam_10$V11[i]),16L)-33);
+}
+sam_11 <- sam[sam$V3 =='11',]
+base_vector_11 <- c(1:length(sam_11))
+for (i in 1:length(sam_11$V11))
+{
+  base_vector_11[i] = mean(strtoi(charToRaw(sam_11$V11[i]),16L)-33);
+}
+sam_12 <- sam[sam$V3 =='12',]
+base_vector_12 <- c(1:length(sam_12))
+for (i in 1:length(sam_12$V11))
+{
+  base_vector_12[i] = mean(strtoi(charToRaw(sam_12$V11[i]),16L)-33);
+}
+sam_13 <- sam[sam$V3 =='13',]
+base_vector_13 <- c(1:length(sam_13))
+for (i in 1:length(sam_13$V11))
+{
+  base_vector_13[i] = mean(strtoi(charToRaw(sam_13$V11[i]),16L)-33);
+}
+sam_14 <- sam[sam$V3 =='14',]
+base_vector_14 <- c(1:length(sam_14))
+for (i in 1:length(sam_14$V11))
+{
+  base_vector_14[i] = mean(strtoi(charToRaw(sam_14$V11[i]),16L)-33);
+}
+sam_15 <- sam[sam$V3 =='15',]
+base_vector_15 <- c(1:length(sam_15))
+for (i in 1:length(sam_15$V11))
+{
+  base_vector_15[i] = mean(strtoi(charToRaw(sam_15$V11[i]),16L)-33);
+}
+sam_16 <- sam[sam$V3 =='16',]
+base_vector_16 <- c(1:length(sam_16))
+for (i in 1:length(sam_16$V11))
+{
+  base_vector_16[i] = mean(strtoi(charToRaw(sam_16$V11[i]),16L)-33);
+}
+sam_17 <- sam[sam$V3 =='17',]
+base_vector_17 <- c(1:length(sam_17))
+for (i in 1:length(sam_17$V11))
+{
+  base_vector_17[i] = mean(strtoi(charToRaw(sam_17$V11[i]),16L)-33);
+}
+sam_18 <- sam[sam$V3 =='18',]
+base_vector_18 <- c(1:length(sam_18))
+for (i in 1:length(sam_18$V11))
+{
+  base_vector_18[i] = mean(strtoi(charToRaw(sam_18$V11[i]),16L)-33);
+}
+sam_19 <- sam[sam$V3 =='19',]
+base_vector_19 <- c(1:length(sam_19))
+for (i in 1:length(sam_19$V11))
+{
+  base_vector_19[i] = mean(strtoi(charToRaw(sam_19$V11[i]),16L)-33);
+}
+sam_2 <- sam[sam$V3 =='2',]
+base_vector_2 <- c(1:length(sam_2))
+for (i in 1:length(sam_2$V11))
+{
+  base_vector_2[i] = mean(strtoi(charToRaw(sam_2$V11[i]),16L)-33);
+}
+sam_3 <- sam[sam$V3 =='3',]
+base_vector_3 <- c(1:length(sam_3))
+for (i in 1:length(sam_3$V11))
+{
+  base_vector_3[i] = mean(strtoi(charToRaw(sam_3$V11[i]),16L)-33);
+}
+sam_4 <- sam[sam$V3 =='4',]
+base_vector_4 <- c(1:length(sam_4))
+for (i in 1:length(sam_4$V11))
+{
+  base_vector_4[i] = mean(strtoi(charToRaw(sam_4$V11[i]),16L)-33);
+}
+sam_5 <- sam[sam$V3 =='5',]
+base_vector_5 <- c(1:length(sam_5))
+for (i in 1:length(sam_5$V11))
+{
+  base_vector_5[i] = mean(strtoi(charToRaw(sam_5$V11[i]),16L)-33);
+}
+sam_6 <- sam[sam$V3 =='6',]
+base_vector_6 <- c(1:length(sam_6))
+for (i in 1:length(sam_6$V11))
+{
+  base_vector_6[i] = mean(strtoi(charToRaw(sam_6$V11[i]),16L)-33);
+}
+sam_7 <- sam[sam$V3 =='7',]
+base_vector_7 <- c(1:length(sam_7))
+for (i in 1:length(sam_7$V11))
+{
+  base_vector_7[i] = mean(strtoi(charToRaw(sam_7$V11[i]),16L)-33);
+}
+sam_8 <- sam[sam$V3 =='8',]
+base_vector_8 <- c(1:length(sam_8))
+for (i in 1:length(sam_8$V11))
+{
+  base_vector_8[i] = mean(strtoi(charToRaw(sam_8$V11[i]),16L)-33);
+}
+sam_9 <- sam[sam$V3 =='9',]
+base_vector_9 <- c(1:length(sam_9))
+for (i in 1:length(sam_9$V11))
+{
+  base_vector_9[i] = mean(strtoi(charToRaw(sam_9$V11[i]),16L)-33);
+}
+sam_X <- sam[sam$V3 == 'X',]
+base_vector_X <- c(1:length(sam_X))
+for (i in 1:length(sam_X$V11))
+{
+  base_vector_X[i] = mean(strtoi(charToRaw(sam_X$V11[i]),16L)-33);
+}
+sam_Y <- sam[sam$V3 == 'Y',]
+base_vector_Y <- c(1:length(sam_Y))
+for (i in 1:length(sam_Y$V11))
+{
+  base_vector_Y[i] = mean(strtoi(charToRaw(sam_Y$V11[i]),16L)-33);
+}
+
+
+boxplot(base_vector_1,base_vector_2,base_vector_3,base_vector_4,base_vector_5,base_vector_6,base_vector_7,base_vector_8,base_vector_9,base_vector_10,base_vector_11,base_vector_12,base_vector_13,base_vector_14,base_vector_15,base_vector_16,base_vector_17,base_vector_18,base_vector_19,base_vector_X,base_vector_Y,names = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","X","Y"),xlab ='reads',ylab='baseQuality');
+
+```
+
+## Q2.6
+The leftmost mapping position of the reads can be found in the v4 or the 4th column.
+
+## Q2.7
+```{r}
+read_position <- ((sam[,3]=='9') & (sam[,4] >= 40801273) & (sam[,4] <= 40805199)) # 40801273 - 40805199
+align_read <- ifelse(read_position == TRUE ,1,0 )
+SUMread <- sum(align_read)
+SUMread
+```
+From the above implementation it can be verified that 119 reads have their leftmost mapping position aligned within these coordinates!
+
+## Q2.8
+```{r}
+quality_check <- (sam[,5] < 50)
+align_read_1 <- ifelse(quality_check == TRUE, 1, 0)
+SUMread_1 <- sum(align_read_1)
+SUMread_1
+```
+61527 reads have mapping quality less than 50
+
+## Q2.9
+```{r}
+quality_checker <-(sam[,5] < 50)  
+align_read_2 <- ifelse (quality_checker == TRUE, sam[,5], NA)
+delete_read <- na.omit(align_read_2)
+mean_mapping_quality <- mean(delete_read)
+mean_mapping_quality
+```
+The mean mapping quality for reads less than 50 is determined to be approximately 0.242
+
+## Q2.10
+```{r}
+fluorophore <- (sam[,3] == 'tdTomato')
+read_num <-ifelse (fluorophore == TRUE , 1, 0)
+sum_read_2 <-sum (read_num)
+sum_read_2
+```
+
+# Question 3
+
+## Q3.1
+```{r}
+vcf_con <- file("C:/Users/Owner/Downloads/RNA_seq_annotated_variants.vcf", open="r")
+vcf_file <- readLines(vcf_con)
+close(vcf_con)
+vcf <- data.frame(vcf_file)
+header <- vcf[grepl("##", vcf$vcf_file), ]
+factor(header)
+variants <- read.csv("C:/Users/Owner/Downloads/RNA_seq_annotated_variants.vcf", skip=length(header), header=TRUE, sep="\t")
+```
+The reference allele base = G- Guanine. 
+The alternative allele called by Strelka = A - Adenine 
+
+## Q3.2
+```{r}
+ref <- (grep("SNVHPOL=16",variants$INFO))
+FST <- variants[ref[1],8] #variants are corresponding positions 
+ANN <- strsplit(FST,";") #splitting strings in x into substrings according to FST positions 
+ANN[[1]][3]
+```
+You should split the string with ';'
+
+## Q3.3 
+```{r}
+grep("INFO=<ID=ANN", vcf$vcf_file) #Used to find the corresponding line to derive the template
+vcf[grep("INFO=<ID=ANN", vcf$vcf_file),]
+strsplit(variants[1,8],",") #splitting the string to look at each of the ANN values separately
+```
+The ANN Value is: ****
+This tells us that the 'Annotation' field is an intronic variant 
+
+## Q3.4
+```{r}
+vcf[108,] #Since we know the grep function returned 108 in 3.3, we can call this value specifically
+spltstr<-strsplit(variants[683,8],",") #Splitting the strings to find variants on line 683
+
+strsplit(spltstr[[1]][1],"\\|", fixed=TRUE)
+spltstr[[1]][2]
+```
+This variant would affect the Rps19 gene as seen in the first entry of the result
+
+## Q3.5
+```{r}
+#TO DO
+variant_types <- strsplit(variants[,8],",")
+variant_types <- do.call(c, variant_types)
+num_chromosome_number_variation <- length(grep("chromosome_number_variation", variant_types, value=FALSE))
+num_chromosome_number_variation
+
+num_exon_loss_variant <- length(grep("exon_loss_variant", variant_types, value=FALSE))
+num_exon_loss_variant
+
+num_frameshift_variant <- length(grep("frameshift_variant", variant_types, value=FALSE))
+num_frameshift_variant
+
+num_stop_gained <- length(grep("stop_gained", variant_types, value=FALSE))
+num_stop_gained
+
+num_stop_lost <- length(grep("stop_lost", variant_types, value=FALSE))
+num_stop_lost
+
+num_start_lost <- length(grep("start_lost", variant_types, value=FALSE))
+num_start_lost
+
+num_splice_acceptor_variant <- length(grep("splice_acceptor_variant", variant_types, value=FALSE))
+num_splice_acceptor_variant
+
+num_splice_donor_variant <- length(grep("splice_donor_variant", variant_types, value=FALSE))
+num_splice_donor_variant
+
+num_rare_amino_acid_variant <- length(grep("rare_amino_acid_variant", variant_types, value=FALSE))
+num_rare_amino_acid_variant
+
+num_missense_variant <- length(grep("missense_variant", variant_types, value=FALSE))
+num_missense_variant
+
+num_disruptive_inframe_insertion <- length(grep("disruptive_inframe_insertion", variant_types, value=FALSE))
+num_disruptive_inframe_insertion
+
+num_conservative_inframe_insertion <- length(grep("conservative_inframe_insertion", variant_types, value=FALSE))
+num_conservative_inframe_insertion
+
+num_disruptive_inframe_deletion <- length(grep("disruptive_inframe_deletion", variant_types, value=FALSE))
+num_disruptive_inframe_deletion
+
+num_conservative_inframe_deletion <- length(grep("conservative_inframe_deletion", variant_types, value=FALSE))
+num_conservative_inframe_deletion
+
+num_5_prime_UTR_truncation_exon_loss_variant <- length(grep("5_prime_UTR_truncation+exon_loss_variant", variant_types, value=FALSE))
+num_5_prime_UTR_truncation_exon_loss_variant
+
+num_3_prime_UTR_truncation_exon_loss <- length(grep("3_prime_UTR_truncation+exon_loss", variant_types, value=FALSE))
+num_3_prime_UTR_truncation_exon_loss
+
+num_splice_branch_variant <- length(grep("splice_branch_variant", variant_types, value=FALSE))
+num_splice_branch_variant
+
+num_splice_region_variant <- length(grep("splice_region_variant", variant_types, value=FALSE))
+num_splice_region_variant
+
+num_stop_retained_variant <- length(grep("stop_retained_variant", variant_types, value=FALSE))
+num_stop_retained_variant
+
+num_initiator_codon_variant <- length(grep("initiator_codon_variant", variant_types, value=FALSE))
+num_initiator_codon_variant
+
+num_synonymous_variant <- length(grep("synonymous_variant", variant_types, value=FALSE))
+num_synonymous_variant
+
+num_initiator_codon_variant_non_canonical_start_codon <- length(grep("initiator_codon_variant+non_canonical_start_codon", variant_types, value=FALSE))
+num_initiator_codon_variant_non_canonical_start_codon
+
+num_stop_retained_variant <- length(grep("stop_retained_variant", variant_types, value=FALSE))
+num_stop_retained_variant
+
+num_coding_sequence_variant <- length(grep("coding_sequence_variant", variant_types, value=FALSE))
+num_coding_sequence_variant
+
+num_5_prime_UTR_variant <- length(grep("5_prime_UTR_variant", variant_types, value=FALSE))
+num_5_prime_UTR_variant
+
+num_3_prime_UTR_variant <- length(grep("3_prime_UTR_variant", variant_types, value=FALSE))
+num_3_prime_UTR_variant
+
+num_5_prime_UTR_premature_start_codon_gain_variant<- length(grep("5_prime_UTR_premature_start_codon_gain_variant", variant_types, value=FALSE))
+num_5_prime_UTR_premature_start_codon_gain_variant
+
+num_upstream_gene_variant <- length(grep("upstream_gene_variant", variant_types, value=FALSE))
+num_upstream_gene_variant
+
+num_downstream_gene_variant <- length(grep("downstream_gene_variant", variant_types, value=FALSE))
+num_downstream_gene_variant
+
+num_TF_binding_site_variant <- length(grep("TF_binding_site_variant", variant_types, value=FALSE))
+num_TF_binding_site_variant
+
+num_regulatory_region_variant <- length(grep("regulatory_region_variant", variant_types, value=FALSE))
+num_regulatory_region_variant
+
+num_miRNA <- length(grep("miRNA", variant_types, value=FALSE))
+num_miRNA
+
+num_custom <- length(grep("custom", variant_types, value=FALSE))
+num_custom
+
+num_sequence_feature <- length(grep("sequence_feature", variant_types, value=FALSE))
+num_sequence_feature
+
+num_conserved_intron_variant <- length(grep("conserved_intron_variant", variant_types, value=FALSE))
+num_conserved_intron_variant
+
+num_intron_variant <- length(grep("intron_variant", variant_types, value=FALSE))
+num_intron_variant
+
+num_intragenic_variant <- length(grep("intragenic_variant", variant_types, value=FALSE))
+num_intragenic_variant
+
+num_conserved_intergenic_variant <- length(grep("conserved_intergenic_variant", variant_types, value=FALSE))
+num_conserved_intergenic_variant
+
+num_intergenic_region <- length(grep("intergenic_region", variant_types, value=FALSE))
+num_intergenic_region
+
+num_coding_sequence_variant <- length(grep("coding_sequence_variant", variant_types, value=FALSE))
+num_coding_sequence_variant
+
+num_non_coding_exon_variant <- length(grep("non_coding_exon_variant", variant_types, value=FALSE))
+num_non_coding_exon_variant
+
+num_nc_transcript_variant <- length(grep("nc_transcript_variant", variant_types, value=FALSE))
+num_nc_transcript_variant
+
+num_gene_variant <- length(grep("gene_variant", variant_types, value=FALSE))
+num_gene_variant
+
+num_chromosome <- length(grep("chromosome", variant_types, value=FALSE))
+num_chromosome
+```
+Adding up all the different categories gives us more than the length of variant_types (4065) because some variants belong to multiple types
+
+## Q3.6
+A frame shift variant is a type of mutation which involves the insertion or deletion of a nucleotide. Specifically, this is where the number of deleted base pairs are not divisible by 3.A missense variant on the other hand is a mistake in the DNA due to a single base pair substitution which causes the wrong amino acid being incorporated into a protein. The frame shift variant as a result, would have a greater effect on the resultant protein since the insertion or a deletion of a nucleotide will affect the entire sequence whereas a missense variant would only affect one amino acid rather than the entire chain. 
+
+
+## Q3.7
+```{r}
+ref <- (grep("SNVHPOL=16",variants$INFO))
+FST <- variants[ref[1],8] #variants are corresponding positions 
+ANN <- strsplit(FST,";") #splitting strings in x into substrings according to FST positions 
+ANN[[1]][3]
+```
+
+## Q3.7
+```{r}
+Potential_Intron<-grepl("MODIFIER", variants$INFO)
+length(Potential_Intron)
+```
+There are 836 total intronic variants
+
+## Q3.8
+```{r}
+get_variants = variants[,8]
+str_splitter <- strsplit(as.character(get_variants), " ", fixed=TRUE)
+name_val <- vector(mode='character',length=0)
+
+for(val in 1:836) {
+  location_finder = grep("ANN=", str_splitter[[val]])
+  ANN_Values = str_splitter[[val]][location_finder]
+  Split_AnnVal = strsplit(as.character(ANN_Values), ",")
+  num_split = strsplit(as.character(Split_AnnVal[[1]][1]), "|", fixed = TRUE)
+  num_impact = num_split[[1]][3]
+  all_names = num_split[[1]][4]
+  
+  if(num_impact%in%( "HIGH" )||num_impact%in%( "MODERATE" )) {
+    name_val <- c(name_val, all_names)
+    
+  }
+}
+name_val
+```
+
+## Q3.9
+STRELKA has a read limit of 50bp based on https://github.com/Illumina/strelka. If we aim to detect indels, we are required to compare the REF and ALT columns. However,the challenge is that if the bp is greater thean 60, it may not be able to detect the SNP or indel as the line is too long and STRELKA will not be able to read it 
+
+## Q3.10
+```{r}
+allele_freq <- strsplit(variants[,10],":")
+allele_freq <- do.call(c, allele_freq)
+allele_freq <- allele_freq[grep("/", allele_freq, value=FALSE)]
+
+vaf_vector <- c(1:836)
+
+for(i in 1:836){
+  allele_freq_val <- strsplit(allele_freq[i],"/")
+  
+  vaf_vector[i] = (length(grep("1", allele_freq_val[[1]], value=FALSE)))/2
+}
+
+boxplot(vaf_vector, ylab='VAF value')
+```
