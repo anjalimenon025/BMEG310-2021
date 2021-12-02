@@ -1,0 +1,523 @@
+---
+title: "BMEG310 2021W - Assignment 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+Please fork this to your repo (or copy it there). Make sure your repo is private, but shared with the course admin. Complete the assignment within your forked version of this file. Please start early, because this assignment is challenging and if you wait until the last moment, you will not be able to complete it. 
+
+
+Group: 11
+  
+Group members: Anjali Menon, Hayden Scott, Rhea Kaul
+
+Assignment due date: November 30, 2021, 11:59PM
+ 
+## Introduction
+*Epstein-Barr Virus (EBV) is a herpes virus and the cause of mononucleosis. Like other herpes viruses, infected cells can remain in a latent phase in the infected person their entire lives. B-cells are the usual target of EBV. When infected, B-cells can become immortalized, and can be cultured in vitro as Lymphoblastoid Cell Lines (LCLs). Like some other viruses, this immortalization can predispose the individual to certain types of cancer. For instance, Hodgkin's Lymphoma is derived from EBV-infected B cells. *
+
+*Today, we're going to look at gene expression data to see how EBV infection changes the transcriptome. We will be looking at B-cell and LCL RNA-seq data from 5 donors, where LCLs were made from each of the donor's B-cells. Please start from this file and add code/code blocks/and commentary as needed. *
+
+
+## Load data
+*Load needed libraries (install any you don't yet have - edgeR can be installed through BioConductor)*
+```{r pressure, echo=FALSE}
+library(ggplot2)
+library(edgeR)
+library(reshape)
+set.seed(416) # please do not change the seed or set a new seed.
+```
+
+*Load data:*
+```{r}
+rnaSeqData =  read.table(textConnection(readLines(gzcon(url(
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE126nnn/GSE126379/suppl/GSE126379_BLCL_processed.txt.gz")))), 
+  sep="\t", stringsAsFactors = FALSE, header = TRUE)
+
+```
+
+*Reshape and re-label data to make it more usable.*
+
+```{r}
+#melt the data frame so that there is one row for every gene-sample-quantification.type (see below) combination
+rnaSeqDataMelted = melt(rnaSeqData, id.vars=c("Chromosome", "Gene.Name", "Gene.ID", "Sum.of.Exon.Length.of.Gene"))
+#label every value as a read count, but...
+rnaSeqDataMelted$quantification.type = "counts"; 
+#relabel those that are really RPKM
+rnaSeqDataMelted$quantification.type[grepl(rnaSeqDataMelted$variable,pattern = "RPKM")] = "RPKM"; 
+#get the donor (human) ID
+rnaSeqDataMelted$donor = gsub(".*BLCL_([ABCDE])([12]).*", "\\1", rnaSeqDataMelted$variable)
+#Get the identifier they use to distinguish LCLs from B-cells
+rnaSeqDataMelted$celltype = gsub(".*BLCL_([ABCDE])([12]).*", "\\2", rnaSeqDataMelted$variable)
+#They didn't label the cell types clearly, so we're going to guess their assignment and verify below
+rnaSeqDataMelted$celltype[rnaSeqDataMelted$celltype=="1"]="B"
+rnaSeqDataMelted$celltype[rnaSeqDataMelted$celltype=="2"]="LCL"
+#Remove this, since we have already parsed out the needed info 
+rnaSeqDataMelted$variable=NULL;
+rnaSeqDataMelted$Gene.Name=NULL; #we only use Gene.ID
+rnaSeqDataMelted$sampleID = paste(rnaSeqDataMelted$celltype, rnaSeqDataMelted$donor, sep="_")
+#divide data into read counts and RPKM
+rnaSeqDataMeltedCounts = rnaSeqDataMelted[rnaSeqDataMelted$quantification.type=="counts",]
+rnaSeqDataMeltedRPKM = rnaSeqDataMelted[rnaSeqDataMelted$quantification.type=="RPKM",]
+#relabel "value" as appropriate, and remove the 'quantification.type' column
+rnaSeqDataMeltedCounts$counts=rnaSeqDataMeltedCounts$value; 
+rnaSeqDataMeltedCounts$value=NULL; 
+rnaSeqDataMeltedCounts$quantification.type=NULL;
+rnaSeqDataMeltedRPKM$RPKM=rnaSeqDataMeltedRPKM$value; 
+rnaSeqDataMeltedRPKM$value=NULL; 
+rnaSeqDataMeltedRPKM$quantification.type=NULL;
+rm('rnaSeqDataMelted') # remove 
+
+```
+
+*Here, `rnaSeqDataMeltedRPKM` contains the gene expression "Reads per kilobase of transcript per million reads", and `rnaSeqDataMeltedCounts` contains the raw count data.*
+
+## Questions
+
+### Question 1
+*It is always important to perform Quality Control on your data. *
+
+#### Question 1a
+*For some reason, the authors labeled the different cell types "1" and "2" in this table. We need to figure out which is which. You know that EBV induces the NF-kappaB pathway, and that the TNF gene should be highly induced. Make a graph that shows the relative gene expression levels of TNF (y axis) for both cell types (x axis), for each donor (colour or "fill").*
+
+
+*Enter your answer below: *
+```{r}
+TNF_levels <- ifelse(rnaSeqDataMeltedRPKM$Gene.ID=="TNF",rnaSeqDataMeltedRPKM$RPKM,0)
+ggplot(data = rnaSeqDataMeltedRPKM, mapping = aes(x = celltype, y = TNF_levels, color = as.factor(donor))) + geom_point()
+
+```
+
+*Explain what you see. Are the celltype labels correct?*
+Both celltypes B and LCL are plotted on the graph. It seems that B has much larger and varied TNF levels than LCL. It can be further
+obeserved that the LCL gene expression levels of TNF are containined close to zero. On the contrary the B celltype has a greatly 
+varied TNF expression level. From this plot is can be concluded that the celltype labels are incorrect since B has a much larger TNF than LCL
+
+#### Question 1b
+*With RNA-seq data, it is important both that samples have sufficient coverage, and that the samples have similar coverage. Either case can lead to underpowered analysis, or misleading results. Calcualte the read coverage for each sample. Make a plot with read coverage on the y-axis (total number of reads) and the samples on the x-axis.*
+
+```{r}
+#calculating read coverage
+#The next steps are taken to craete a new data frame consisting of the RNA-Seq data  
+options(max.print=1000000)
+make_dataframe <- data.frame(rnaSeqDataMeltedCounts$sampleID,rnaSeqDataMeltedCounts$counts)
+make_dataframe$id <- c(as.factor(make_dataframe$rnaSeqDataMeltedCounts.sampleID))
+new_rnaSeq <- reshape(make_dataframe,timevar= "id", idvar = c("rnaSeqDataMeltedCounts.sampleID","rnaSeqDataMeltedCounts.counts"), direction="wide")
+
+read_val <- sum(new_rnaSeq$rnaSeqDataMeltedCounts.counts)
+
+i <- (new_rnaSeq[,1] == "LCL_A")
+L_A <- ifelse(i == TRUE, new_rnaSeq[,2],0)
+LCL_A <- sum(L_A) #Y-axis
+
+i <-(new_rnaSeq[,1]=="LCL_B")
+L_B <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+LCL_B <- sum(L_B)
+
+i <-(new_rnaSeq[,1]=="LCL_C")
+L_C <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+LCL_C <- sum(L_C)
+
+i <-(new_rnaSeq[,1]=="LCL_D")
+L_D <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+LCL_D <- sum(L_D)
+
+i <-(new_rnaSeq[,1]=="LCL_E")
+L_E <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+LCL_E <- sum(L_E)
+
+
+i<-(new_rnaSeq[,1]=="B_A")
+B_A <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+BVAL_A <- sum(B_A)
+
+i<-(new_rnaSeq[,1]=="B_B")
+B_B <- ifelse(i == TRUE,new_rnaSeq[,2],0 )
+BVAL_B <- sum(B_B)
+
+i<-(new_rnaSeq[,1]=="B_C")
+B_C <- ifelse(i == TRUE,new_rnaSeq[,2],0 )
+BVAL_C <- sum(B_C)
+
+i<-(new_rnaSeq[,1]=="B_D")
+B_D <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+BVAL_D <- sum(B_D)
+
+i<-(new_rnaSeq[,1]=="B_E")
+B_E <-ifelse(i == TRUE,new_rnaSeq[,2],0 )
+BVAL_E <- sum(B_E)
+
+sample_name <-c("LCL_A","LCL_B","LCL_C","LCL_D","LCL_E","B_A","B_B","B_C","B_D","B_E")
+coverage <-c(LCL_A,LCL_B,LCL_C,LCL_D,LCL_E,BVAL_A,BVAL_B,BVAL_C,BVAL_D,BVAL_E)
+
+plotxy<-data.frame(sample_name,coverage)
+ggplot(data = plotxy, mapping = aes(x = sample_name, y = coverage)) + geom_point()
+```
+
+*Which sample has the least coverage?*
+
+```{r}
+sum(B_A)
+sum(B_B)
+sum(B_C)
+sum(B_D)
+sum(B_E)
+sum(LCL_A)
+sum(LCL_B)
+sum(LCL_C)
+sum(LCL_D)
+sum(LCL_E)
+#from the graph above it is clear that B_E has the lowest coverage. Specifically, B_E has a coverage 4477929.
+```
+
+*Which sample has the most?*
+
+```{r}
+sum(B_A)
+sum(B_B)
+sum(B_C)
+sum(B_D)
+sum(B_E)
+sum(LCL_A)
+sum(LCL_B)
+sum(LCL_C)
+sum(LCL_D)
+sum(LCL_E)
+#The graph shows that LCL_D has the highest coverage.Specifically, LCL_D has a coverage of 15660072
+```
+
+*What is the % difference between the max and min (relative to the min)?*
+
+```{r}
+difference <- (sum(LCL_D) - sum(B_E))/(sum(B_E))
+difference*100
+#The percent difference between the max and min relative to the minimum is 249.7168%
+```
+
+*In cases where samples have vastly different coverage, you can potentially down-sample the higher-coverage samples. Sometimes, throwing out the data in this way can also introduce new problems, so we're going to stick with the data we have. What is more important in our analysis is that the LCLs and B-cells have similar coverage.*
+
+#### Question 1c
+*One easy way to compare the samples, is to calculate the pairwise correlation between them. In general, we do this in log gene expression space.*
+
+*First we need to create a RPKM matrix. You can use the `reshape` package to change the shape of a `data.frame`. Below is an example for how to reshape our RPKM `data.frame` into a matrix of genes by samples. *
+```{r}
+# Here, we need fun.aggregate because there are duplicate gene names. We'll just add everything up for each gene name.
+rpkmMatrix = cast(rnaSeqDataMeltedRPKM, Gene.ID ~ sampleID, value="RPKM", fun.aggregate="sum")
+#now convert this to a matrix
+row.names(rpkmMatrix) = rpkmMatrix$Gene.ID
+rpkmMatrix$Gene.ID=NULL;
+rpkmMatrix= as.matrix(rpkmMatrix)
+
+head(rpkmMatrix)
+
+rpkmMatrix_logvalue <-log(rpkmMatrix+1)
+head(rpkmMatrix_logvalue)
+
+```
+
+*Calculate the pairwise Pearson correlations between samples. Use log(RPKM+1) to calculate the correlations. Plot the correlations as a heatmap.*
+```{r}
+library(pheatmap)
+rpkm_logarathim <- log(rpkmMatrix+1)
+head(rpkm_logarathim)
+map <- cor(rpkm_logarathim, method = "pearson")
+pheatmap(map)
+```
+
+*How similar are the B-cell samples to each other? *
+Between 100% and 90% inclusive
+
+*The LCLs to each other? *
+Between 100% and 95% inclusive
+
+*The B-cells to the LCLs?*
+Between 80% and 87% inclusive
+
+*The donors are labeled [A-E]. What would we expect to see if there were donor-specific effects here (e.g. some donor-specific signal affecting both cell types)? Do we see them?*
+We would only see a high similarity between both cell types for the same donor, which we do not
+
+#### Question 1d
+
+*Plot the kernel density estimate for RPKM (x axis). Describe the distribution. *
+
+```{r}
+plot(density(rpkmMatrix))
+# Plot follows exponential decay with extremely high rate of decay
+```
+
+*Plot the kernel density estimate for log(RPKM+1) (x axis). Describe the distribution.*
+
+```{r}
+plot(density(rpkm_logarathim))
+#This graph decays in a pseudo-exponential way, but breaks this decay in favour of a small summit at x = 2. This graph includes a negative x value.
+```
+
+*Why do we log-transform gene expression data?*
+To decrease the expression range
+
+*Why do we use RPKM+1?*
+To avoid undefined values for the log-transformed data
+
+#### Question 1e
+*It is common to exclude some genes from analysis. For instance, if the gene is not expressed, there is no way it can be differentially expressed. Even in cases where there are a few reads, it is common to exclude these genes too since there we cannot be confident in any differential expression based on very few reads. Calculate the mean number of reads per gene using the count data. We're going to use a cutoff of a mean of at least 5 reads per gene, on average, to be included in the subsequent analysis. Plot the mean reads per gene as a Cumulative Distribution (see https://en.wikipedia.org/wiki/Cumulative_distribution_function), and indicate with a vertical line where the cutoff lies.*
+
+
+```{r}
+mean_amount <- by(rnaSeqDataMeltedCounts$counts,rnaSeqDataMeltedCounts$Gene.ID,mean)
+plot(ecdf(mean_amount),ylab="mean",xlab="cumulative gene density")
+abline(h =log10(5))
+```
+
+*By looking at the graph, what fraction of genes will be excluded if we require an average of at least 5 reads per gene?*
+Around 3/5 genes will be excluded . However this is A negligible amount relative to the cumulative gene density
+
+#### Question 1f
+*Make a vector of `Gene.ID`s for all the genes we will _include_ in our analysis (e.g. those with 5 or more reads per sample on average). Name it `keepGenes`.*
+
+```{r}
+cutoffmean<-ifelse(mean_amount>0, mean_amount,0)
+mean_lessthanfive <- ifelse (mean_amount > 5,mean_amount,0)
+genenames <- cutoffmean[mean_lessthanfive!= 0]
+frame <- data.frame(genenames)
+keepGenes <- frame[,0]
+keepGenes
+
+```
+
+*How many genes have we retained?*
+
+```{r}
+length(genenames)+34 #we are adding 34 here
+```
+
+#### Question 1f (bonus)
+
+*`rnaSeqDataMeltedCounts` contains a commmon error introduced by pasting the data having passed through excel. Can you identify this error and show some examples?*
+
+```{r}
+
+```
+
+### Question 2
+
+*We want to know what genes are differentially expressed between LCLs and B cells.* 
+
+*Today, we're going to use edgeR. The user guide is here:* https://www.bioconductor.org/packages/release/bioc/vignettes/edgeR/inst/doc/edgeRUsersGuide.pdf
+
+#### Question 2a
+*For calculating differential expression, we need a count matrix. There is a lot more information in counts than in normalized counts. For example, you can believe 1/1E6 reads a lot less than 100/1E8 reads, but they both have the same RPKM values. Accordingly, Please create a matrix of counts (genes in the rows and samples in the columns) and filter it for genes with an average number of counts across samples >5 (as in Q1f). *
+
+```{r}
+matrix_count = cast(rnaSeqDataMeltedCounts, Gene.ID ~ sampleID, value="counts", fun.aggregate="sum")
+row.names(matrix_count) = matrix_count$Gene.ID
+matrix_count$Gene.ID=NULL;
+matrix_count=as.matrix(matrix_count)
+matrix_count5<-matrix_count[(rowSums(matrix_count )/10)>5, ,drop=FALSE]
+matrix_count5<-as.matrix(matrix_count5)
+head(matrix_count5)
+```
+
+#### Question 2b
+
+*EdgeR is exceptionally versatile, with many different options for analysis. Today, you're going to use the GLM-quasi-likelihood approach to calculate differential expression. Below is some incomplete code that you can use to start with. Please complete the code so that edgeR uses your countMatrix to calculate differential expression comparing B cells to LCLs. Please also comment the code so that it is clear what each step does (in your own words).*
+
+```{r}
+ct = as.factor(gsub("_[A-E]","\\1",colnames(matrix_count5)))#Searches for a specific pattern and changes the column names with matrix_count5
+y = DGEList(counts=data.matrix(matrix_count5), group=ct)#Forms DGEList object using the countMatrix table values
+normalization = calcNormFactors(y) #Calculates the normalization factors in order to scale the raw library size values 
+model = model.matrix(~normalization$samples$group)#create a new design matrix named model
+estimated = estimateDisp(normalization,model)#Maximize the binomial liklihood. This is used to estimate any common dispersion between tags
+glmfitter = glmQLFit(estimated,model)#Fit a quasi-lili-hood negative binomial generalized log-linear model. This is done to count the data values 
+qlffitter = glmQLFTest(glmfitter, coef=2)#Conducting statistical test genewise for different given coefficients 
+
+allDEStats = as.data.frame(topTags(qlffitter,n=nrow(matrix_count5)))#Create a data frame value by using the top tags and the ones that pass the genewise test using rows and the columns in matrix_count5
+allDEStats$Gene.ID=row.names(allDEStats)#returning the row names of the data frame
+original <- allDEStats[order(row.names(allDEStats)), ]#returning the row names in order 
+head(original)
+
+```
+
+
+#### Question 2c
+*Now, let's confirm that we did the comparison in the correct direction. We want to ensure that we did LCLs/B-cells, and not the other way around. Make a volcano plot using ggplot2 for this analysis. A volcano plot is a scatter plot with log(fold-change) on the x-axis, and -log(P-value) on the y-axis. Label TNF in this plot. Alter the above code if logFC is not expressed as log(LCLs/B-cells). *
+
+```{r}
+x <- allDEStats$logFC
+y <- -log(allDEStats$PValue)
+plot(x,y,xlab="logFC",ylab="-log(P-value)",col=ifelse(allDEStats$Gene.ID =="TNF", "red","yellow"), pch=20)
+legend("topright","red dot = TNF value")
+```
+
+
+#### Question 2d
+*In the case of this experiment, each donor had corresponding B cell and LCL samples - these are indicated by the 'donor' variable, which takes the values A-E. For instance, the LCLs and B-cells labeled with Donor 'E' are both from the same individual. What happens if there are person-specific differences in expression? For instance, what if person E had autoimmune disease? This could perturb both their B-cells and their resulting LCLs. These are called 'paired samples' since there is a pair of samples for each donor (B cells and LCLs). Repeat the analysis above, this time incorporating the knowledge of paired samples in the analysis, using the donor as a blocking variable.*
+
+```{r}
+
+ct_donor = as.factor(gsub("LCL_|B_","\\1",colnames(matrix_count5)))
+y_donor= DGEList(counts=data.matrix(matrix_count5), group=ct)
+normalization_donor= calcNormFactors(y_donor)
+model_donor= model.matrix(~normalization_donor$samples$group+ct_donor)
+estimated_donor= estimateDisp(normalization_donor,model_donor )
+glmfitter_donor= glmQLFit(estimated_donor,model_donor )
+qlffitter_donor = glmQLFTest(glmfitter_donor, coef=2)
+allDEStats_donor = as.data.frame(topTags(qlffitter_donor,n=nrow(matrix_count)))
+allDEStats_donor$Gene.ID=row.names(allDEStats_donor)
+paired <- allDEStats_donor[ order(row.names(allDEStats_donor)), ]
+head(paired)
+
+x_donor <- -allDEStats_donor$logFC
+y_donor <- -log(allDEStats_donor$PValue)
+
+plot(x_donor,y_donor,xlab="logFC",ylab="-log(P-value)",col=ifelse(allDEStats$Gene.ID=="TNF", "red","yellow"),pch=20)
+
+```
+
+
+### Question 3
+*When performing any bioinformatic analysis, it is critically important to verify your answers. Here, we're going to compare the results from our paired analysis vs. the unpaired analysis to ensure that our analysis is correct (go back and redo the previous parts if you find that your analysis appears to be incorrect).*
+
+#### Question 3a
+*Compare the results from the paired analysis vs. the original analysis (where donor was not considered).*
+*How many genes have a logFC that differs by 1 or more?*
+
+```{r}
+gene_numbers <- ifelse(abs(original$logFC-paired$logFC)>=1,1,0)
+sum(gene_numbers)
+```
+
+#### Question 3b
+*Plot the logFC values for paired (x-axis) vs unpaired (y-axis) analyses. What is the Pearson r between the two?*
+
+```{r}
+plot(x=original$logFC, y=paired$logFC, xlab = "Paired logFC",ylab = "Unpaired logFC",col= "blue")
+pearson_R<- cor(paired$logFC,original$logFC,method = "pearson")
+pearson_R
+```
+
+#### Question 3c
+*Why are there some genes whose logFC estimates differ so much between the paired and unpaired analyses? Let's inspect the genes with a logFC difference between paired and unpaired of at least 1. A heatmap can be used to display a matrix of values. In this case, we want the values to represent log(RPKM+1) values (use `rnaSeqDataMeltedRPKM`), with genes (only those whose logFCs differ between the analysis using donor as a blocking variable vs. without by more than 1) on the y axis and samples on the x axis.* 
+
+```{r}
+frame_data = data.frame(original$logFC,paired$logFC)
+rownames(frame_data) = original$Gene.ID
+newdata=subset(frame_data,abs(frame_data$original.logFC-frame_data$paired.logFC)>=1)
+log_differentdata<-data.frame(rpkmMatrix_logvalue)
+log_differential<-log_differentdata[log_differentdata$Gene.ID %in% rownames(newdata),]
+pheatmap(data.matrix(log_differential),labels_row=log_differential$Gene.ID,)
+```
+
+*What are some reasons why paired and unpaired analyses appear to be giving different answers in this case? Are there donor-specific things going on?*
+
+Paired analysis allows comparison of similarity between groups, whereas unpaired analysis does not. This heatmap doesn't give much insight, and even if we know from paired analysis that there does not appear to be anything donor-specific happening, using only this graph the answer is unclear
+
+### Question 4
+*There are many different ways of normalizing RNA seq data and they all make different assumptions. *
+
+*For more information on RNA-seq normalization methods, see this great post by Harold Pimentel: https://haroldpimentel.wordpress.com/2014/05/08/what-the-fpkm-a-review-rna-seq-expression-units/*
+
+#### *From now on, we will be using only the paired (donor as blocking variable) analysis*
+
+#### Question 4a
+
+*edgeR uses TMM normalization. TMM normalization is usually a solid approach, but it assumes that most of the genes do not differ in expression between your samples. One approach you could use to check this is by looking at the P-value distribution from our DE analysis. For a well-behaved statistical test, P-values are uniformly distributed between 0 and 1. Plot the Cumulative Distribution of P-values for the paired analysis. On the same plot, include a CDF for 100,000 uniformly sampled random values between 0 and 1.*
+
+```{r}
+cumulative_val<-ecdf(runif(100000,0,1))
+plot(ecdf(paired$PValue),ylab="P-Value",xlab="Cumulative Distribution")+ lines(cumulative_val)
+```
+
+*Do the P-values calculated by edgeR look like they are sampled uniformly between 0 and 1?*
+No
+
+*Estimate the fraction of genes that appear to have differential expression (does not have to be exact):* 
+Approximately 3/5
+
+*Do you think we should use TMM normalization for these samples? Why or why not?*
+Yes, because TMM normalization is robust and is not affected by differential expression
+
+#### Question 4b
+*Another way to ensure that P-values are well-behaved is to make a Q-Q plot. A Q-Q plot, in this case, will show the expected P-values (under the null hypothesis) on the x axis, and actual p-values on the y-axis. Recall that by the definition of a P-value, if you generate `n` p-values under the null hypothesis, you expect to see 1 p-value of 1/`n` or lower, two of 2/`n` or lower, etc. Here, `n` is the number of DE tests you performed. Make a Q-Q plot of p-values for your DE analysis. Use -log(P) for both axes (this puts the most significant in the upper right, and least significant in the lower left). Also include the line y=x in red for comparison. For a well-behaved statistical test, most of the points should lie along the y=x line. *
+
+
+```{r}
+ggplot(paired,aes(sample=-log(PValue)))+stat_qq(col="red")+stat_qq_line(col="blue")
+```
+
+*Do most of the P-values lie along the y=x line?*
+Yes
+
+*What does this mean about how we did our analysis? What would you do differently if we were to redo the analysis?*
+This means we did a good statistical test, but given that there are still some values that do not fit, this could be improved. If we were to redo this analysis, we would test the paried analysis using a better fitter and with more testing. 
+
+#### Question 4c
+*FDRs are automatically calculated by edgeR. plot the -log10(FDR) (y axis) versus the -log10(P-value) (x axis) for the paired DE analysis. Include the line y=x in red again for reference*
+
+```{r}
+ggplot(paired, aes(x = -log(PValue), y = -log(FDR))) + geom_point(col="red") + geom_abline(col="blue")
+```
+
+*Are the points above or below the line? Why?*
+Below the line. This is because our P-value is lower than the False Discovery Rate, which means that there are low chances of false positive results
+
+#### Question 4d
+*If we took our set of significant DE genes to be those that meet an FDR of 10%, how many genes would be considered significantly DE?*
+
+```{r}
+DE_genevalue <- subset(paired,FDR<=0.01)
+length(DE_genevalue$Gene.ID)
+```
+
+*What is the P-value of the gene with the highest FDR that is still less than or equal to FDR < 10%?*
+
+```{r}
+fdr_high<-subset(paired,paired$FDR<=max(DE_genevalue$FDR))
+max(fdr_high$PValue)
+```
+
+*Ignoring any potential flaws in the analysis up to this point and assuming our P-values and FDRs are well founded, is the probability of this gene NOT being differentially expressed (ie. a false discovery) greater than, less than, or equal to 10%?*
+Less than
+
+
+### Question 5
+*Now we're going to spend some time actually looking at the results of our analysis, trying to determine what is going on when B-cells are converted to LCLs.*
+
+#### Question 5a
+
+*GOrilla, which we use below, can take a single ranked list as input. Here, you should make two ranked lists of gene IDs, one with the gene IDs sorted by log FC from high to low, and the other from low to high. Use the paired analysis for this question. You will only want gene IDs written to the file (e.g. no row or column names, no quotes) - GOrilla will give error messages if it is not properly formatted.*
+
+
+```{r}
+paired$Gene.ID=row.names(paired)
+rankA<- paired[order(paired$logFC),]
+IDA<-rankA$Gene.ID
+rankD<- paired[order((paired$logFC),decreasing = TRUE),]
+IDD<-rankD$Gene.ID
+
+file_IDA<-file("IDA.txt")
+writeLines(IDA,file_IDA)
+close(file_IDA)
+file_IDD<-file("IDD.txt")
+writeLines(IDD,file_IDD)
+```
+
+#### Question 5b
+*Now use GOrilla to measure gene set enrichment analysis for both sets of genes.*
+http://cbl-gorilla.cs.technion.ac.il/
+
+*Use Homo sapiens; a single ranked list of genes (those we just created - run it twice, once per file); and all ontologies.*
+
+*When inspecting the results, consider both the significance of the enrichment, the degree of enrichment, and the number of genes involved. For instance, a high-fold enrichment for a very specific term can give more insight than a more significant but lower fold enrichment for a more generic term. Alternatively, enrichments involving fewer genes are more likely to occur by chance, and so may have a high fold enrichment, but nonetheless be spurious.  *
+
+*What processes are relatively high in B cells?*
+G protien-coupled receptor signaling pathway and the regulation of the ion transportation are higher in B cells 
+
+*Which are relatively high in LCLs?*
+cell, biological adhesion and unicellular organism processes are high in LCLs
+
+*What do you think could be happening as B-cells are reprogrammed to LCLs?*
+When B cells are programmed to LCLs they will start producing the protiens that LCLs produce. This would correspond to the reduction of the amount of proteins that the B cells produce and change overall biological processes in the body, 
