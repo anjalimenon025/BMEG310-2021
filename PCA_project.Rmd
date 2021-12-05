@@ -1,0 +1,145 @@
+---
+title: "PCA Analysis"
+author: "Anjali Menon"
+---
+# PCA ANALYSIS
+
+### Loading packages
+```{r}
+library(ggplot2)
+library(edgeR)
+
+library(devtools)
+library(ggbiplot)
+
+library(reshape)
+library(readxl)
+library(tidyverse)
+
+library("TCGAbiolinks")
+library("SummarizedExperiment")
+library("survival")
+
+library("survminer")
+library("factoextra")
+
+```
+
+###Loading Data
+```{r, include = FALSE}
+TCGAbiolinks:::getProjectSummary("TCGA-BLCA")
+
+query_TCGA = GDCquery(
+  project = "TCGA-BLCA", #Bladder Urothelial Carcinoma
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  experimental.strategy = "RNA-Seq",
+  workflow.type = "HTSeq - Counts")
+
+#Accessing data of the first few results for data visualization
+col_results = getResults(query_TCGA)
+head(col_results) 
+colnames(col_results)
+#Downloading the data and creating an assay of RNA-sequence data 
+GDCdownload(query = query_TCGA)
+
+tcga_data = GDCprepare(query_TCGA)
+
+RNAseq_matrix = assay(tcga_data)
+```
+
+#Organizing data files and developing data frames
+```{r}
+#Reading data from files and saving into a table
+mutations = read.table("C:/Users/Owner/Desktop/data_mutations.txt", sep = "\t")
+clinical_patient = read.table("C:/Users/Owner/Desktop/data_clinical_patient.txt",sep = "\t")
+
+#Using the mutations file, the patient and mutation information is gathered. 
+#-01 is performed in order for the name of the patient to correspond to the clinical_patient matrix. 
+genes = data.frame(mutations$V1,gsub("-01","", mutations$V17))
+
+#creation of column names for Hugo Symbol genes Tumor_Sample_Barcode patient genes
+names(genes) <- lapply(genes[1, ], as.character)
+genes <- genes[-1,] 
+names(clinical_patient) <- lapply(clinical_patient[1, ], as.character)
+clinical_patient = clinical_patient[-1,]
+genes$count = 1
+
+#melting the data and then casting the data to find which of the genes are predominantly being mutated
+#This method was sourced from: <https://www.datasciencemadesimple.com/melting-casting-r/>
+m = melt(genes[,c(1,2,3)],id = c("Hugo_Symbol","Tumor_Sample_Barcode"))
+c = cast(m,Tumor_Sample_Barcode~Hugo_Symbol, sum)
+rownames(c) = c[,1]
+c = c[,-1] 
+c = c[-1,]
+c = c[,colSums(c) > 10]
+```
+
+# Performing PCA and Clustering
+```{r}
+#browsing information of patients in which we have age related data
+c$PatID = rownames(c)
+c1 = c[match(tcga_data$patient,c$PatID),]
+c1 <- c1[complete.cases(c1), ] #Saving these values in a new datframe c1
+
+#generating a new data frame to store values of age, lifespan and vital status of the patient 
+pca_clinical = data.frame(matrix(ncol = 1,nrow = 433))
+pca_clinical$patient= tcga_data$patient 
+pca_clinical$status = tcga_data$vital_status
+pca_clinical$age = tcga_data$age_at_index
+pca_clinical$lifespan= tcga_data$days_to_death
+pca_clinical = pca_clinical[match(c1$PatID,pca_clinical$patient), ] #Eliminate variables that do not have information to avoid out of bounds matrix 
+pca_clinical = pca_clinical[,-1]
+pca_clinical$age[is.na(pca_clinical$age)] <- 0
+pca_clinical$lifespan[is.na(pca_clinical$lifespan)] <- 500 #If information is "NA" assume the average lifespan to be 500 days 
+c1$PatID = NULL
+
+
+for (i in 1:length(pca_clinical$age)){ #Creating new groupings for each age sector 
+  if (pca_clinical$age[i] <= 40.00) {
+    pca_clinical$age_in_years[i] = "0-40" 
+  } else if (pca_clinical$age[i] > 40.00 && pca_clinical$age[i] <= 60.00) {
+     pca_clinical$age_in_years[i] = "40-60"  
+  } else if (pca_clinical$age[i] >60.00 && pca_clinical$age[i] <=70.00) {
+     pca_clinical$age_in_years[i] = "60-70"  
+  } else if (pca_clinical$age[i] >70.00 && pca_clinical$age[i] <=80.00) {
+     pca_clinical$age_in_years[i] = "70-80"  
+  } else if (pca_clinical$age[i] >80.00) {
+     pca_clinical$age_in_years[i] = "80+"  
+  }
+}
+for (i in 1:length(pca_clinical$lifespan)){ #Creating new groupings for lifespan. These numbers were chosen after manual inspection of data
+  if (pca_clinical$lifespan[i] <= 50.00) {
+    pca_clinical$lifespan_in_days[i] = "0-50" 
+  } else if (pca_clinical$lifespan[i] > 50.00 && pca_clinical$lifespan[i]<=200.00) {
+     pca_clinical$lifespan_in_days[i] = "50-200"  
+  } else if (pca_clinical$lifespan[i] > 200.00 && pca_clinical$lifespan[i]<= 600.00) {
+     pca_clinical$lifespan_in_days[i] = "200-600"  
+  } else if (pca_clinical$lifespan[i] > 600.00 && pca_clinical$lifespan[i]<= 1000.00) {
+     pca_clinical$lifespan_in_days[i] = "600-1000"  
+  } else if (pca_clinical$lifespan[i] > 1000.00) {
+     pca_clinical$lifespan_in_days[i] = "1000+"  
+  }
+}
+
+#PCA analysis 
+m.pca <- prcomp(c1,center =TRUE, scale.=F)
+pca_analysis <- as.data.frame(m.pca$x)
+
+pca_analysis$status = pca_clinical$status
+pca_analysis$age_in_years <- pca_clinical$age_in_years
+pca_analysis$lifespan_in_days <- pca_clinical$lifespan_in_days
+
+#AGE PLOT
+ggplot(pca_analysis, aes(x=PC1, y=PC2, color=age_in_years)) + geom_point(size=1,aes(shape=status))+ ylim(c(-3,6)) + xlim(c(-3.5,3))
+km.res <- kmeans(m.pca$x, centers = length(unique(pca_clinical$age_in_years))) #Kmeans of data points 
+fviz_cluster(km.res, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point" ) #Clustering 
+
+#LIFESPAN PLOT
+ggplot(pca_analysis, aes(x=PC1, y=PC2, color=lifespan_in_days)) + geom_point(size=1,aes(shape=status)) + ylim(c(-3,6)) + xlim(c(-3.5,3))
+km.res2 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$lifespan_in_days))) #Kmeans of data points 
+fviz_cluster(km.res2, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point") #Clustering 
+
+#ALIVE OR DEAD PLOT
+ggplot(pca_analysis, aes(x=PC1, y=PC2,color=status)) + geom_point(size=1) +ylim(c(-5,5)) +xlim(c(-2.5,2))
+
+```
