@@ -1,0 +1,141 @@
+---
+title: "Differential Equations"
+author: "Anjali Menon"
+---
+# Differential Expression Analysis 
+
+### Loading Libraries 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(reshape)
+library(plyr)
+
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+
+library("TCGAbiolinks")
+library("AnnotationDbi")
+
+#Following method method for gene annotation was inspired by this website: <https://www.bioconductor.org/help/course-materials/2014/useR2014/Integration.html>
+library("org.Hs.eg.db")
+library("DESeq2")
+
+#Setting seed for a random value before beginning 
+set.seed(800)
+
+```
+
+### Loading data into R and accessing the Bladder uruthelial carcinoma 
+```{r}
+TCGAbiolinks:::getProjectSummary("TCGA-BLCA")
+query_TCGA = GDCquery(
+  project = "TCGA-BLCA",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  experimental.strategy = "RNA-Seq",
+  workflow.type = "HTSeq - Counts")
+lusc_res = getResults(query_TCGA) # make results as table
+GDCdownload(query = query_TCGA)
+tcga_data = GDCprepare(query_TCGA)
+RNAseq_matrix = assay(tcga_data)
+```
+
+#Finding Relavent genes 
+```{r}
+#Accessing the data
+mutations <- read.delim("C:/Users/Owner/Desktop/data_mutations.txt", sep = "\t")
+
+top_Genes <- table(mutations$Gene) #Creating a table including all gene information
+top_Genes <- sort(top_Genes, decreasing = TRUE) #Ordering genes in descending order
+
+#Plotting genes for visualization
+plot(top_Genes, col= "blue")
+abline(v=300, col='red')
+text(x=3000,y = 200,labels="y=300",col='orange')
+
+#Since the top genes appear to have a frequency of approximately 300 that correlate to that of the mutation, they will be excluded. This is illustrated on the graph using the following line. 
+
+top_Genes <- top_Genes[1:300]
+plot(top_Genes, col="blue")
+top_Genes <- as.matrix(top_Genes)
+top_Genes <- data.matrix(top_Genes)
+new_genes <- rownames(top_Genes)
+#Creating new table including only the top genes and labeling the columns and rows
+
+top_Genes <- t(rbind(new_genes, top_Genes[,1]))
+colnames(top_Genes) <- c("gene.ID", "mutations")
+rownames(top_Genes) <- c(1:length(new_genes))
+write.csv(top_Genes, "top_Genes.csv", row.names=FALSE, col.names=TRUE)
+write.table(new_genes, "new_genes.csv", row.names=FALSE, col.names=FALSE)
+```
+
+#Organizing data
+```{r}
+
+clinical = tcga_data@colData
+
+clindf <- clinical$barcode
+
+patient_age <- clinical$age_at_index
+
+zero <- which(is.na(patient_age))
+patient_age[zero] = 0
+
+clindf <- t(rbind(clindf, patient_age))
+
+colnames(clindf) <- c("ID", "patient_age")
+```
+
+
+```{r}
+new_genes <- read.csv("new_genes.csv", header=FALSE)
+new_genes <- new_genes$V1
+# Finding out which of the relevant genes have associated RNAseq data
+intersect_all <- function(a,b,...){
+  Reduce(intersect, list(a,b,...))
+}
+genes <- intersect_all(new_genes, rownames(RNAseq_matrix))
+
+# Isolating the RNAseq data for these genes
+for(i in 1:length(genes)){
+  genes[i] <- which(rownames(RNAseq_matrix) == genes[i])
+}
+RNAseq_matrix <- RNAseq_matrix[as.numeric(genes),]
+```
+
+```{r}
+# Reformatting the sample names from RNAseq to match them with their clinical data
+patients <- colnames(RNAseq_matrix)
+patients <- unique(patients)
+
+# Finding the patients common to both RNAseq and the clinical data
+patients <- intersect_all(patients, rownames(clindf))
+```
+
+```{r}
+# Unlike the first time I set up this pathway, the clinical data came along with the RNAseq data so the patients are the same. 
+clinData <- as.data.frame(clindf)
+```
+
+```{r}
+# Selecting the correct RNAseq samples
+col.names <- colnames(RNAseq_matrix)
+samples <- rep(NA, length(clinData$ID))
+for(i in 1:length(samples)){
+  samples[i] <- which(col.names == clinData$ID[i])
+}
+RNAseq_matrix <- RNAseq_matrix[,samples]
+```
+
+# Beginning the DE Pathway
+```{r}
+# Because DE analyses require there two be only two groups, I will separate the patients into two groups: one consisting of patients with a pack-year history of less than 30, and one of those with a pack-year history of greater than 30.
+
+clinData$patient_age <- ifelse(clinData$patient_age <= 65, "under 65", "over 65 ")
+
+# Now we can actually do a DE analysis with DESeq2
+dds = DESeqDataSetFromMatrix(countData=RNAseq_matrix, colData=clinData, design=~patient_age)
+dds = DESeq(dds)
+res <- results(dds)
+```
