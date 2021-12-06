@@ -140,3 +140,5 @@ fviz_cluster(k_means2, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point") 
 
 #ALIVE OR DEAD PLOT
 ggplot(pca_analysis, aes(x=PC1, y=PC2,color=status)) + geom_point(size=1) +ylim(c(-5,5)) +xlim(c(-2.5,2))
+
+```
