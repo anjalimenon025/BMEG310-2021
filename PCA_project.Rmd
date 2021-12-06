@@ -72,10 +72,9 @@ rownames(c) = c[,1]
 c = c[,-1] 
 c = c[-1,]
 c = c[,colSums(c) > 10]
-```
 
 # Performing PCA and Clustering
-```{r}
+
 #browsing information of patients in which we have age related data
 c$PatID = rownames(c)
 c1 = c[match(tcga_data$patient,c$PatID),]
