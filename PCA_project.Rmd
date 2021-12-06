@@ -130,15 +130,13 @@ pca_analysis$lifespan_in_days <- pca_clinical$lifespan_in_days
 
 #AGE PLOT
 ggplot(pca_analysis, aes(x=PC1, y=PC2, color=age_in_years)) + geom_point(size=1,aes(shape=status))+ ylim(c(-3,6)) + xlim(c(-3.5,3))
-km.res <- kmeans(m.pca$x, centers = length(unique(pca_clinical$age_in_years))) #Kmeans of data points 
-fviz_cluster(km.res, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point" ) #Clustering 
+k_means1 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$age_in_years))) #Kmeans of data points 
+fviz_cluster(k_means1, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point" ) #Clustering 
 
 #LIFESPAN PLOT
 ggplot(pca_analysis, aes(x=PC1, y=PC2, color=lifespan_in_days)) + geom_point(size=1,aes(shape=status)) + ylim(c(-3,6)) + xlim(c(-3.5,3))
-km.res2 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$lifespan_in_days))) #Kmeans of data points 
-fviz_cluster(km.res2, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point") #Clustering 
+k_means2 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$lifespan_in_days))) #Kmeans of data points 
+fviz_cluster(k_means2, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point") #Clustering 
 
 #ALIVE OR DEAD PLOT
 ggplot(pca_analysis, aes(x=PC1, y=PC2,color=status)) + geom_point(size=1) +ylim(c(-5,5)) +xlim(c(-2.5,2))
-
-```
