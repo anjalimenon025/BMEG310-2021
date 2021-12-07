@@ -1,11 +1,10 @@
-----
+---
 title: "Differential Equations"
 author: "Anjali Menon"
 ---
 # Differential Expression Analysis 
-
-### Loading Libraries 
 ```{r setup, include=FALSE}
+### Loading Libraries 
 knitr::opts_chunk$set(echo = TRUE)
 
 library(reshape)
@@ -25,24 +24,19 @@ library("DESeq2")
 #Setting seed for a random value before beginning 
 set.seed(800)
 
-```
-
 ### Loading data into R and accessing the Bladder uruthelial carcinoma 
-```{r}
+
 TCGAbiolinks:::getProjectSummary("TCGA-BLCA")
 query_TCGA = GDCquery(
   project = "TCGA-BLCA",
-  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  data.category = "Transcriptome Profiling", 
   experimental.strategy = "RNA-Seq",
   workflow.type = "HTSeq - Counts")
-lusc_res = getResults(query_TCGA) # make results as table
+result = getResults(query_TCGA)
 GDCdownload(query = query_TCGA)
 tcga_data = GDCprepare(query_TCGA)
-RNAseq_matrix = assay(tcga_data)
-```
 
 #Finding Relavent genes 
-```{r}
 #Accessing the data
 mutations <- read.delim("C:/Users/Owner/Desktop/data_mutations.txt", sep = "\t")
 
@@ -59,7 +53,6 @@ text(x=3000,y = 200,labels="y=300",col='orange')
 top_Genes <- top_Genes[1:300]
 plot(top_Genes, col="blue")
 
-
 top_Genes <- as.matrix(top_Genes)
 top_Genes <- data.matrix(top_Genes)
 new_genes <- rownames(top_Genes)
@@ -71,39 +64,43 @@ rownames(top_Genes) <- c(1:length(new_genes))
 
 write.table(new_genes, "new_genes.csv", row.names=FALSE, col.names=FALSE)
 write.csv(top_Genes, "top_Genes.csv", row.names=FALSE, col.names=TRUE)
-```
 
-#Organizing data and retreiving gene information
-```{r}
+#Organizing data and retrieving gene information
 clinical = tcga_data@colData
 barcode <- clinical$barcode
 patient_age <- clinical$age_at_index
-zero <- which(is.na(patient_age))
-patient_age[zero] = 0
+#Ensuring that any value which is not existent or NA is replaced by a zero numerical value
+nullval <- which(is.na(patient_age))
+patient_age[nullval] = 0
 barcode <- t(rbind(barcode, patient_age))
 colnames(barcode) <- c("ID", "patient_age")
 
+#Committing the new genes into a new file which is used for further data visualization
 new_genes <- read.csv("new_genes.csv", header=FALSE)
 new_genes <- new_genes$V1 #Read new genes and assign
 
-find_new <- function(a,b,...){
-  Reduce(intersect, list(a,b,...))
-}
+#This method was derived from the following website: <https://purrr.tidyverse.org/reference/reduce.html> and it is used to iteratively apply a binary function a and b
+find_new <- function(a,b,...){Reduce(intersect,list(a,b,...))}
+
+#Finding new genes that correspond to those in the RNASeq Matrix
 g <- find_new(new_genes, rownames(RNAseq_matrix))
 for(i in 1:length(g)){
+  
   g[i] <- which(rownames(RNAseq_matrix) == g[i])
 }
 RNAseq_matrix <- RNAseq_matrix[as.numeric(g), ]
 
+#Creating a new data frame including the column names from RNAseq matric and Patient ID's
 ID_patient <- colnames(RNAseq_matrix)
 ID_patient <- unique(ID_patient)
-ID_patient <- intersect_all(ID_patient, rownames(barcode))
+ID_patient <- find_new(ID_patient, rownames(barcode))
 
 new.data <- as.data.frame(barcode) #Creation of a new data frame containing specific values of interest
 column <- colnames(RNAseq_matrix)
 
 samples <- rep(NA, length(new.data$ID)) #Classifying the samples with ID that do not exist
 for(i in 1:length(samples)){
+  
   samples[i] <- which(column == new.data$ID[i])
 }
 
@@ -120,7 +117,7 @@ differential_Genes = DESeq(differential_Genes)
 results.differentialgene <- results(differential_Genes)
 res.plot <- as.data.frame(results.differentialgene) #Creating a box plot
 
-ggplot(res.plot, aes(x=log2FoldChange, y=-log(pvalue)))+ geom_point()
+ggplot(res.plot, aes(x=log2FoldChange, y=-log(pvalue)))+ geom_point(color = "blue")
 
 #p-value of alpha = 0.05 which means that we are considering values which are statistically significant
 alpha.significant <- results(differential_Genes, alpha=0.05)
@@ -139,29 +136,27 @@ alpha.significance2 <- subset(alpha.significant, i_val)
 #Finding top 5 upregulated and downregulated genes. This procedure was referenced from Assignment 4 to find a heatmap of important genes
 upreg <- alpha.significance2[ order( alpha.significance2$log2FoldChange, decreasing=TRUE ), ]
 upreg <- upreg[1:5, ]
-upreg
 downreg <- alpha.significance2[ order( alpha.significance2$log2FoldChange ), ]
 downreg <- downreg[1:5, ]
-downreg
 
-
+#Finding the normalized logarithmic values for creating a heatmap
 differential_Genes.new <- estimateSizeFactors(differential_Genes)
 differential_Genes.normalized <- counts(differential_Genes.new, normalized=TRUE)
 differential_Genes.logFold <- log2(1+differential_Genes.normalized)
 numval <- subset(differential_Genes.logFold, i_val)
 
-
+#Creating a new data frame consisting of both upregulate and downregulated genes 
 up <- as.data.frame(upreg$symbol)
 colnames(up) <- "Gene.Name"
 up_val <- numval[order( alpha.significance2$log2FoldChange, decreasing=TRUE)[1:5], ]
 down <- as.data.frame(downreg$symbol)
 colnames(down) <- "Gene.Name"
 down_val <- numval[order( alpha.significance2$log2FoldChange )[1:5], ]
-
 column.total <- rbind(up, down)
 data_genematrix <- as.matrix(rbind(up_val, down_val))
 rownames(data_genematrix) <- column.total$Gene.Name
 
+#Creating a heatmap using the clustered values based on the normalized logarithmic values 
 column_values = data.frame(new.data$patient_age)
 row.names(column_values) <- new.data$ID
 pheatmap(data_genematrix, cluster_rows=TRUE, 
