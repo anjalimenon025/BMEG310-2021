@@ -1,5 +1,5 @@
 ---
-title: "PCA Analysis"
+title: "PCA Analysis - Clinical Data"
 author: "Anjali Menon"
 ---
 # PCA ANALYSIS
@@ -23,10 +23,7 @@ library("survival")
 library("survminer")
 library("factoextra")
 
-```
-
 ###Loading Data
-```{r, include = FALSE}
 TCGAbiolinks:::getProjectSummary("TCGA-BLCA")
 
 query_TCGA = GDCquery(
@@ -45,10 +42,9 @@ GDCdownload(query = query_TCGA)
 tcga_data = GDCprepare(query_TCGA)
 
 RNAseq_matrix = assay(tcga_data)
-```
 
 #Organizing data files and developing data frames
-```{r}
+
 #Reading data from files and saving into a table
 mutations = read.table("C:/Users/Owner/Desktop/data_mutations.txt", sep = "\t")
 clinical_patient = read.table("C:/Users/Owner/Desktop/data_clinical_patient.txt",sep = "\t")
@@ -85,16 +81,16 @@ pca_clinical = data.frame(matrix(ncol = 1,nrow = 433))
 pca_clinical$patient= tcga_data$patient 
 pca_clinical$status = tcga_data$vital_status
 pca_clinical$age = tcga_data$age_at_index
-pca_clinical$lifespan= tcga_data$days_to_death
 pca_clinical = pca_clinical[match(c1$PatID,pca_clinical$patient), ] #Eliminate variables that do not have information to avoid out of bounds matrix 
 pca_clinical = pca_clinical[,-1]
 pca_clinical$age[is.na(pca_clinical$age)] <- 0
-pca_clinical$lifespan[is.na(pca_clinical$lifespan)] <- 500 #If information is "NA" assume the average lifespan to be 500 days 
+#If information is "NA" assume the average lifespan to be 500 days 
 c1$PatID = NULL
 
 
 for (i in 1:length(pca_clinical$age)){ #Creating new groupings for each age sector 
-  if (pca_clinical$age[i] <= 40.00) {
+  if (pca_clinical$age[i] <= 40.00) 
+    {
     pca_clinical$age_in_years[i] = "0-40" 
   } else if (pca_clinical$age[i] > 40.00 && pca_clinical$age[i] <= 60.00) {
      pca_clinical$age_in_years[i] = "40-60"  
@@ -104,19 +100,6 @@ for (i in 1:length(pca_clinical$age)){ #Creating new groupings for each age sect
      pca_clinical$age_in_years[i] = "70-80"  
   } else if (pca_clinical$age[i] >80.00) {
      pca_clinical$age_in_years[i] = "80+"  
-  }
-}
-for (i in 1:length(pca_clinical$lifespan)){ #Creating new groupings for lifespan. These numbers were chosen after manual inspection of data
-  if (pca_clinical$lifespan[i] <= 50.00) {
-    pca_clinical$lifespan_in_days[i] = "0-50" 
-  } else if (pca_clinical$lifespan[i] > 50.00 && pca_clinical$lifespan[i]<=200.00) {
-     pca_clinical$lifespan_in_days[i] = "50-200"  
-  } else if (pca_clinical$lifespan[i] > 200.00 && pca_clinical$lifespan[i]<= 600.00) {
-     pca_clinical$lifespan_in_days[i] = "200-600"  
-  } else if (pca_clinical$lifespan[i] > 600.00 && pca_clinical$lifespan[i]<= 1000.00) {
-     pca_clinical$lifespan_in_days[i] = "600-1000"  
-  } else if (pca_clinical$lifespan[i] > 1000.00) {
-     pca_clinical$lifespan_in_days[i] = "1000+"  
   }
 }
 
@@ -132,11 +115,6 @@ pca_analysis$lifespan_in_days <- pca_clinical$lifespan_in_days
 ggplot(pca_analysis, aes(x=PC1, y=PC2, color=age_in_years)) + geom_point(size=1,aes(shape=status))+ ylim(c(-3,6)) + xlim(c(-3.5,3))
 k_means1 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$age_in_years))) #Kmeans of data points 
 fviz_cluster(k_means1, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point" ) #Clustering 
-
-#LIFESPAN PLOT
-ggplot(pca_analysis, aes(x=PC1, y=PC2, color=lifespan_in_days)) + geom_point(size=1,aes(shape=status)) + ylim(c(-3,6)) + xlim(c(-3.5,3))
-k_means2 <- kmeans(m.pca$x, centers = length(unique(pca_clinical$lifespan_in_days))) #Kmeans of data points 
-fviz_cluster(k_means2, data=m.pca$x, choose.vars=c("PC1", "PC2"), geom="point") #Clustering 
 
 #ALIVE OR DEAD PLOT
 ggplot(pca_analysis, aes(x=PC1, y=PC2,color=status)) + geom_point(size=1) +ylim(c(-5,5)) +xlim(c(-2.5,2))
