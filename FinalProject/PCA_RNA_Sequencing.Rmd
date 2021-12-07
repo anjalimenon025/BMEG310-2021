@@ -1,0 +1,111 @@
+---
+title: "PCA using RNA sequencing data + K-means clustering"
+author: "Anjali Menon"
+output: html_document
+---
+The following code is adapted from the differential equations code. In this code, the data is divided into 4 clusters and then pca is performed and k-means clustering afterwards. This code is for the RNA data. 
+```{r}
+library(pheatmap)
+library(reshape)
+library(plyr)
+
+library("org.Hs.eg.db")
+library("TCGAbiolinks")
+library("AnnotationDbi")
+
+library(factoextra)
+library(DESeq2)
+library(ggplot2)
+
+#Setting seed to a random number once again
+set.seed(800)
+
+TCGAbiolinks:::getProjectSummary("TCGA-BLCA") #Accessing Bladder Urothelial Carcinoma data
+query_TCGA = GDCquery(
+  project = "TCGA-BLCA",
+  data.category = "Transcriptome Profiling",
+  experimental.strategy = "RNA-Seq",
+  workflow.type = "HTSeq - Counts")
+resultval = getResults(query_TCGA)
+GDCdownload(query = query_TCGA)
+tcga_data = GDCprepare(query_TCGA)
+RNAseq_matrix = assay(tcga_data)
+
+#Creating a dataframe consisting of tcga data values, barcode and age_at_index of the patients
+clinical_Datavalues = tcga_data@colData
+barcode <- clinical_Datavalues$barcode
+patient_age <- clinical_Datavalues$age_at_index
+zero <- which(is.na(patient_age))
+patient_age[zero] = 0
+barcode <- t(rbind(barcode, patient_age))
+colnames(barcode) <- c("ID", "patient_age")
+
+#The interesting genes of importance created in the Differential Equation code are then read here
+new_genes <- read.csv("new_genes.csv", header=FALSE)
+new_genes <- new_genes$V1
+new_genes <- read.csv("new_genes.csv", header=FALSE)
+new_genes <- new_genes$V1 #Read new genes and assign
+
+#The genes are reduced to a single value by iteratively applying the a,b values to the data. This step is referenced from the following link: <https://purrr.tidyverse.org/reference/reduce.html>
+find_new <- function(a,b,...){
+  Reduce(intersect, list(a,b,...))
+}
+#The genes are found and added into a new dataframe once again
+g <- find_new(new_genes, rownames(RNAseq_matrix))
+for(i in 1:length(g)){
+  g[i] <- which(rownames(RNAseq_matrix) == g[i])
+}
+RNAseq_matrix <- RNAseq_matrix[as.numeric(g), ]
+
+#New data frame is constructed and the patient values are added 
+ID_patient <- colnames(RNAseq_matrix)
+ID_patient <- unique(ID_patient)
+ID_patient <- find_new(ID_patient, rownames(barcode))
+
+New_Data <- as.data.frame(barcode) 
+column <- colnames(RNAseq_matrix)
+#If there are any data values that are not provided or NA then the value will become O
+data_Samplevalue <- rep(NA, length(New_Data$ID))
+for(i in 1:length(data_Samplevalue)){
+  data_Samplevalue[i] <- which(column == New_Data$ID[i])
+}
+RNAseq_matrix <- RNAseq_matrix[,data_Samplevalue]
+#Data is divided into the 5 categories decided in PCA analysis
+for (i in 1:length(New_Data$patient_age)){
+  if (New_Data$patient_age[i] <= 40.00){
+    New_Data$Col[i] = "0-40" 
+  }else if (New_Data$patient_age[i] > 40.00 && 
+            New_Data$patient_age[i] <= 60.00){
+     New_Data$Col[i] = "40-60"  
+  }else if (New_Data$patient_age[i] > 60.00 && 
+            New_Data$patient_age[i] <= 70.00){
+     New_Data$Col[i] = "60-70"  
+  }else if (New_Data$patient_age[i] > 70.00 && 
+            New_Data$patient_age[i] <= 80.00){
+     New_Data$Col[i] = "70-80"  
+  }else if (New_Data$patient_age[i] > 80.00)
+    {
+     New_Data$Col[i] = "80+"  
+  }
+}
+#After division, it is then sorted into a new dataframe 
+New_Data$status <- clinical_Datavalues$vital_status
+distance_random = dist(t(RNAseq_matrix),upper = TRUE)
+c = data.frame(New_Data$Col)
+row.names(c) <- New_Data$ID
+distance.table = as.matrix( distance_random)
+rownames(distance.table) = colnames(RNAseq_matrix)
+colnames(distance.table) = colnames(RNAseq_matrix)
+
+#Create a heat map of scaled values 
+pheatmap(distance.table, clustering_distance_rows = distance_random, clustering_distance_cols = distance_random, cluster_rows=TRUE, show_rownames = FALSE, show_colnames = FALSE, cluster_cols=FALSE, annotation_col = c)
+pca <- prcomp(t(RNAseq_matrix), scale.=TRUE)
+#Create a new data frame of scaled values represented in heatmap
+scaled <- as.data.frame(pca$x)
+scaled$Col <- New_Data$Col
+scaled$Status <- New_Data$status
+#Performing PCA and K-means Clustering on each set of data points. This method is referenced using <https://www.rdocumentation.org/packages/factoextra/versions/1.0.7/topics/fviz_cluster>
+ggplot(scaled, aes(x=PC1, y=PC2, color= Col))+geom_point(size=1, aes(shape=Status))+ggtitle("PCA age in years : RNAseq")
+kmeans_Data <- kmeans(pca$x, centers = length(unique(New_Data$Col)))
+fviz_cluster(kmeans_Data, data=pca$x, choose.vars=c("PC1", "PC2"), geom="point", main="K-means Clustering age in years: RNAseq")
+```
