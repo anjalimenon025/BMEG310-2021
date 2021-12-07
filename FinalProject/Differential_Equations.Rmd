@@ -1,10 +1,10 @@
 ---
-title: "Differential Equations"
+title: "Differential Expression Analysis"
 author: "Anjali Menon"
 ---
 # Differential Expression Analysis 
 ```{r setup, include=FALSE}
-### Loading Libraries 
+#Loading Libraries 
 knitr::opts_chunk$set(echo = TRUE)
 
 library(reshape)
@@ -80,7 +80,9 @@ new_genes <- read.csv("new_genes.csv", header=FALSE)
 new_genes <- new_genes$V1 #Read new genes and assign
 
 #This method was derived from the following website: <https://purrr.tidyverse.org/reference/reduce.html> and it is used to iteratively apply a binary function a and b
-find_new <- function(a,b,...){Reduce(intersect,list(a,b,...))}
+find_new <- function(a,b,...){
+  Reduce(intersect,list(a,b,...))
+  }
 
 #Finding new genes that correspond to those in the RNASeq Matrix
 g <- find_new(new_genes, rownames(RNAseq_matrix))
