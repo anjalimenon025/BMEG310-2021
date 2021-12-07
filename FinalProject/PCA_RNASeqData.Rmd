@@ -3,7 +3,7 @@ title: "PCA using RNA sequencing data + K-means clustering"
 author: "Anjali Menon"
 output: html_document
 ---
-The following code is adapted from the differential equations code. In this code, the data is divided into 4 clusters and then pca is performed and k-means clustering afterwards. This code is for the RNA data. 
+The following code is adapted from the differential expressions code. In this code, the data is divided into 4 clusters and then pca is performed and k-means clustering afterwards. This code is for the RNA data. 
 ```{r}
 library(pheatmap)
 library(reshape)
