@@ -37,7 +37,7 @@ Discussion: Rhea Kaul, Hayden Scott, Anjali Menon
 Conclusion: Anjali Menon, Rhea Kaul, Hayden Scott 
 
 Presentation:
-Script: Anjali Menon
+Script: Rhea Kaul, Hayden Scott
 Slides: Anjali Menon
 
 
