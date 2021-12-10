@@ -19,6 +19,10 @@ Initially our team aimed to perform linear regression analysis. However there wa
 Instead we have chosen to analyse the most strongly expressed genes over and uner 65 years of age through differential analysis. Using this method, the upregulated and downregulated
 genes were isolated and plotted using a volcano plot. Furthermore, heatmaps were additionally created to visualise the difference between the data.
 
+Project Video:
+Please use this link to view our team's video:
+https://youtu.be/QlEXzvaaw9s
+
 Group Contribution Summary:
 As discussed with the professor, our team has been facing challenges with regards to task distribution as 2 of our group members have been unwell under the duration of the final
 project. The task distribution can be viewed as follows:
