@@ -1,0 +1,96 @@
+---
+title: "Survival Analysis"
+output: html_document
+---
+
+
+```{r Survival Analysis}
+#Read data from unpacked files
+clinicalpatient_data<- read.delim("data_clinical_patient.txt");
+mutation_data <- read.delim("data_mutations.txt");
+
+
+#Load packages
+#BiocManager::install("survival")
+#BiocManager::install("survminer")
+library("survival")
+library("survminer")
+
+number_of_rows<- length(clinicalpatient_data$X.Patient.Identifier);
+
+Patient_identifier<- clinicalpatient_data$X.Patient.Identifier[5:number_of_rows];
+Diagnosis_age<- as.numeric(clinicalpatient_data$Diagnosis.Age[5:number_of_rows]);
+Survival_status<-clinicalpatient_data$Disease.specific.Survival.status[5:number_of_rows];
+Disease_specific_survival<-as.numeric(clinicalpatient_data$Months.of.disease.specific.survival[5:number_of_rows]);
+Tumor_stage<-clinicalpatient_data$American.Joint.Committee.on.Cancer.Tumor.Stage.Code[5:number_of_rows];
+Months_to_last_follow_up<-as.numeric(clinicalpatient_data$Last.Communication.Contact.from.Initial.Pathologic.Diagnosis.Date[5:number_of_rows])/30;
+
+clin_df <- data.frame(Patient_identifier,Diagnosis_age,Survival_status,Disease_specific_survival,Tumor_stage,Months_to_last_follow_up);
+
+
+#Boolean variable that is TRUE for deceased patients with tumor
+clin_df$deceased = clin_df$Survival_status == "1:DEAD WITH TUMOR";
+
+#"Overall survival" variable that is equal to days to death for dead patients and days to last followup for other patients
+clin_df$overall_survival = ifelse(clin_df$deceased, clin_df$Disease_specific_survival,clin_df$Months_to_last_follow_up);
+
+Surv(clin_df$overall_survival,clin_df$deceased) ~ clin_df$Diagnosis_age;
+
+#fit a survival model
+fit_overall = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df);
+print(fit_overall)
+ggsurvplot(fit_overall, data=clin_df)
+
+#fit a survival model for age range 30 to 40
+clin_df_30 = subset(clin_df, clin_df$Diagnosis_age>=30 & clin_df$Diagnosis_age<40,);
+fit_30 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_30);
+print(fit_30)
+ggsurvplot(fit_30,data=clin_df_30)
+
+#fit a survival model for age range 40 to 50
+clin_df_40 = subset(clin_df, clin_df$Diagnosis_age>=40 & clin_df$Diagnosis_age<50,);
+fit_40 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_40);
+print(fit_40)
+ggsurvplot(fit_40,data=clin_df_40)
+
+#fit a survival model for age range 50 to 60
+clin_df_50 = subset(clin_df, clin_df$Diagnosis_age>=50 & clin_df$Diagnosis_age<60,);
+fit_50 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_50);
+print(fit_50)
+ggsurvplot(fit_50,data=clin_df_50)
+
+
+#fit a survival model for age range 60 to 70
+clin_df_60 = subset(clin_df, clin_df$Diagnosis_age>=60 & clin_df$Diagnosis_age<70,);
+fit_60 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_60);
+print(fit_60)
+ggsurvplot(fit_60,data=clin_df_60)
+
+
+#fit a survival model for age range 70 to 80
+clin_df_70 = subset(clin_df, clin_df$Diagnosis_age>=70 & clin_df$Diagnosis_age<80,);
+fit_70 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_70);
+print(fit_70)
+ggsurvplot(fit_70,data=clin_df_70)
+
+#fit a survival model for age range 80 to 91
+clin_df_80 = subset(clin_df, clin_df$Diagnosis_age>=80 & clin_df$Diagnosis_age<=90,);
+fit_80 = survfit(Surv(overall_survival,deceased) ~ Diagnosis_age,data=clin_df_80);
+print(fit_80)
+ggsurvplot(fit_80,data=clin_df_80)
+
+
+# Attempted Linear Regression -------------------------------------------------------
+#install.packages("readxl")
+library(readxl)
+
+lm_DiagnosisAge = lm(Diagnosis_age~overall_survival,data = clin_df)
+summary(lm_DiagnosisAge)
+
+plot(clin_df$Diagnosis_age, clin_df$overall_survival, ylab='Overall Survival Days', xlab='Diagnosis Age', pch = 16, col = "blue")
+abline(lm_DiagnosisAge)
+  
+
+
+```
+
