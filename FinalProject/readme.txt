@@ -24,7 +24,9 @@ Data Visualisation: RMD & HTML file containing codes for graphs
 Survival Analysis: RMD & HTML file containing analysis and graph codes
 PCA_ClinicalData: RMD & HTML file containing PCA analysis on clinical data and graph code
 PCA_RNASeqData: RMD & HTML file containing PCA analysis on RNASeq data
-Differential_Expression_Analysis: RMD File containing differential expression analyisis *file was too large to knit to HTML format 
+Differential_Expression_Analysis: RMD File containing differential expression analyisis *file was too large to knit to HTML format
+data_clinical_patient: TXT file containing patient data
+(Note: We were unable to uplaod the TXT file for data_mutations due to its large size)
 
 PROJECT VIDEO
 ------------
@@ -44,7 +46,7 @@ Code:
 
 Report contributions:
 Introduction: Anjali Menon
-Methods: Anjali Menon + Rhea Kaul
+Methods: Anjali Menon, Rhea Kaul
 Results: Hayden Scott
 Discussion: Rhea Kaul, Hayden Scott, Anjali Menon
 Conclusion: Anjali Menon, Rhea Kaul, Hayden Scott 
