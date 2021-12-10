@@ -1,6 +1,9 @@
+The determination of biological trends in Bladder Urothelial Carcinoma
+---------------------
 Author: Anjali Menon
-PROJECT OVERVIEW:
 
+PROJECT OVERVIEW
+------------
 The goal of this study is to determine the biological trend between mutations in the TCGA,
 PanCancer Atlas data set and the average age of patients diagnosed with Bladder Urothelial Carcinoma (UCC).
 The correlation of biological mutations and average patient age is important in order to understand whether the risk
@@ -12,18 +15,24 @@ genetic testing to determine the risk that an individual may have of developing 
 4. Clustering
 5. Survival analysis
 
-Note: The rmd code files along with the rendered HTML for each of these aspects of the data pipeline are attached in the FinalProject folder.
+REPOSITORY NAVIGATION
+------------
+The files used for data analysis of this research can be accessed in the "FinalProject" folder.
+This folder contains the following code files:
+310 Final Report: PDF of final report
+Data Visualisation: RMD & HTML file containing codes for graphs 
+Survival Analysis: RMD & HTML file containing analysis and graph codes
+PCA_ClinicalData: RMD & HTML file containing PCA analysis on clinical data and graph code
+PCA_RNASeqData: RMD & HTML file containing PCA analysis on RNASeq data
+Differential_Expression_Analysis: RMD File containing differential expression analyisis *file was too large to knit to HTML format 
 
-Challenges:
-Initially our team aimed to perform linear regression analysis. However there was no strong corelations related to patient age and for this reason this method was not taken.
-Instead we have chosen to analyse the most strongly expressed genes over and uner 65 years of age through differential analysis. Using this method, the upregulated and downregulated
-genes were isolated and plotted using a volcano plot. Furthermore, heatmaps were additionally created to visualise the difference between the data.
-
-Project Video:
+PROJECT VIDEO
+------------
 Please use this link to view our team's video:
 https://youtu.be/QlEXzvaaw9s
 
-Group Contribution Summary:
+GROUP CONTRIBUTION SUMMARY
+------------
 As discussed with the professor, our team has been facing challenges with regards to task distribution as 2 of our group members have been unwell under the duration of the final
 project. The task distribution can be viewed as follows:
 Code:
@@ -33,7 +42,7 @@ Code:
 4. Clustering - ANJALI MENON
 5. Survival analysis RHEA KAUL
 
-Final Report:
+Report contributions:
 Introduction: Anjali Menon
 Methods: Anjali Menon + Rhea Kaul
 Results: Hayden Scott
